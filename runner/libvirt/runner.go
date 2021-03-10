@@ -218,6 +218,7 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 			tunnelIP:  tunnelIP,
 			image:     filepath.Join(r.imageDir, r.namePrefix+topoDev.Name),
 			baseImage: base,
+			pool:      r.storagePool,
 			topoDev:   topoDev,
 		}
 	}

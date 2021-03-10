@@ -34,7 +34,6 @@ type Runner struct {
 	portBase       int
 	portGap        int
 	storagePool    string
-	baseImageDir   string
 	imageDir       string
 	authorizedKeys []string
 }
@@ -99,18 +98,10 @@ func WithStoragePool(pool string) RunnerOption {
 	}
 }
 
-// WithBaseImageDir sets the target directory for downloaded base images.
-func WithBaseImageDir(dir string) RunnerOption {
-	return func(r *Runner) {
-		r.baseImageDir = dir
-	}
-}
-
-// WithImageDir sets the target directory for the delta images created for each
-// device.
-// BUG: this option requires the privilege to read base images and write to an
-// FS-based storage pool. Prefer using WithStoragePool instead.
-func WithImageDir(dir string) RunnerOption {
+// WithImageDirectory sets the target directory where to create volumes. This
+// causes the runner to create volumes using direct file system operations
+// instead of libvirt. Prefer using WithStoragePool.
+func WithImageDirectory(dir string) RunnerOption {
 	return func(r *Runner) {
 		r.imageDir = dir
 	}
@@ -134,14 +125,12 @@ func NewRunner(opts ...RunnerOption) *Runner {
 		// BUG(ls): The default range matches the one used by
 		// topology_converter. It belongs to Cumulus though and we
 		// probably shouldn't use it without asking them.
-		macBase:      mustParseMAC("44:38:39:00:00:00"),
-		portBase:     1e4,
-		portGap:      1e3,
-		storagePool:  "default",
-		baseImageDir: "/var/lib/libvirt/images",
-		imageDir:     "/var/lib/libvirt/images",
-		devices:      make(map[string]*device),
-		domains:      make(map[string]*libvirt.Domain),
+		macBase:     mustParseMAC("44:38:39:00:00:00"),
+		portBase:    1e4,
+		portGap:     1e3,
+		storagePool: "default",
+		devices:     make(map[string]*device),
+		domains:     make(map[string]*libvirt.Domain),
 	}
 
 	for _, opt := range opts {
@@ -223,7 +212,7 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 		if err != nil {
 			return err
 		}
-		base := filepath.Join(r.baseImageDir, path.Base(u.Path))
+		base := filepath.Join(r.imageDir, path.Base(u.Path))
 		r.devices[topoDev.Name] = &device{
 			name:      r.namePrefix + topoDev.Name,
 			tunnelIP:  tunnelIP,
@@ -378,7 +367,7 @@ func (r *Runner) downloadBaseImagesDirect(ctx context.Context, t *topology.T) (e
 		if err != nil {
 			return err
 		}
-		ofile := filepath.Join(r.baseImageDir, path.Base(u.Path))
+		ofile := filepath.Join(r.imageDir, path.Base(u.Path))
 		_, err = os.Stat(ofile)
 		if err == nil {
 			continue
@@ -468,7 +457,7 @@ func (r *Runner) createVolumesDirect(ctx context.Context, t *topology.T) (err er
 		if err != nil {
 			return err
 		}
-		base := filepath.Join(r.baseImageDir, path.Base(u.Path))
+		base := filepath.Join(r.imageDir, path.Base(u.Path))
 		diff := filepath.Join(r.imageDir, d.name)
 		if err := createVolume(ctx, diff, base); err != nil {
 			return err

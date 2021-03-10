@@ -29,11 +29,11 @@ func TestValidDomainXML(t *testing.T) {
 	var buf bytes.Buffer
 	for _, d := range r.devices {
 		if err := tmpl.Execute(&buf, d.templateArgs()); err != nil {
-			t.Errorf("domain %s: %w", d.name, err)
+			t.Errorf("domain %s: %v", d.name, err)
 		}
 		domXML := buf.Bytes()
 		if err := validateDomainXML(domXML); err != nil {
-			t.Errorf("domain %s: %w", d.name, err)
+			t.Errorf("domain %s: %v", d.name, err)
 		}
 		buf.Reset()
 	}

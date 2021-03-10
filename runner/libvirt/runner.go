@@ -580,9 +580,10 @@ func (d *device) templateArgs() *domainTemplateArgs {
 	for _, intf := range d.interfaces {
 		typ := "udp"
 		netSrc, udpSrc := intf.network, udpSource{
-			// BUG: We need the remote device's tunnel IP to allow
-			// a single topology to span multiple hosts. Fix it by
-			// stashing away the remote IP during buildInventory.
+			// BUG(ls): We need the remote device's tunnel IP to
+			// allow a single topology to span multiple hosts. Fix
+			// it by stashing away the remote IP during
+			// buildInventory.
 			Address:      d.tunnelIP.String(),
 			Port:         intf.port,
 			LocalAddress: d.tunnelIP.String(),

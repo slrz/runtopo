@@ -33,9 +33,9 @@ func newVolume(name string, size int64) *libvirtxml.StorageVolume {
 				Type: "qcow2",
 			},
 			Permissions: &libvirtxml.StorageVolumeTargetPermissions{
-				// BUG: File mode and group owner of created
-				// volumes is hard-coded to 0644 and gid 107,
-				// respectively.
+				// BUG(ls): File mode and group owner of
+				// created volumes is hard-coded to 0644 and
+				// gid 107, respectively.
 				Mode:  "0664",
 				Group: "107",
 			},
@@ -56,9 +56,9 @@ func newBackingStoreFromVol(vol *libvirt.StorageVol) (*libvirtxml.StorageVolumeB
 	return &libvirtxml.StorageVolumeBackingStore{
 		Path: path,
 		Format: &libvirtxml.StorageVolumeTargetFormat{
-			// BUG: We only support QCOW2 backing files in QCOW2
-			// format. There's no reason we couldn't work with
-			// QCOW2 volumes backed by RAW images.
+			// BUG(ls): We only support QCOW2 backing files in
+			// QCOW2 format. There's no reason we couldn't work
+			// with QCOW2 volumes backed by RAW images.
 			Type: "qcow2",
 		},
 	}, nil

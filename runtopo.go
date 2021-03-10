@@ -111,7 +111,7 @@ func getEnvOrDefault(key, def string) string {
 }
 
 func atoi(a string) int {
-	if i, err := strconv.Atoi(a); err != nil {
+	if i, err := strconv.Atoi(a); err == nil {
 		return i
 	}
 	return 0

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
+	"inet.af/netaddr"
 	"slrz.net/runtopo/topology"
 )
 
@@ -78,9 +79,12 @@ func commandsForFunction(d *device) []byte {
 	for _, u := range cloudInitUnits {
 		buf.WriteString("run-command systemctl disable " + u + "\n")
 	}
-	buf.WriteString("install dnsmasq,lldpd\n")
+	buf.WriteString("install lldpd\n")
 	buf.WriteString("run-command systemctl enable lldpd.service\n")
 
+	if d.topoDev.Function() == topology.FunctionOOBServer {
+		writeExtraMgmtServerCommands(&buf, d)
+	}
 	// Only required for SELinux-enabled systems (mostly Fedora/EL)
 	buf.WriteString("selinux-relabel\n")
 
@@ -105,3 +109,134 @@ func writeExtraMgmtSwitchCommands(w io.Writer, d *device) {
 		strings.Replace(bridgeConf, "\n", "\\\n", -1)+"\n")
 }
 
+const (
+	nftablesRuleset = `
+table ip nat {
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		masquerade
+	}
+}
+`
+	dnsmasqConf = `
+strict-order
+interface=eth1
+dhcp-no-override
+dhcp-authoritative
+dhcp-hostsfile=/etc/dnsmasq.hostsfile
+`
+
+	ifcfgEth1 = `
+TYPE=Ethernet
+DEVICE=eth1
+ONBOOT=yes
+BOOTPROTO=none
+IPADDR=%s
+PREFIX=%d
+`
+)
+
+func writeExtraMgmtServerCommands(w io.Writer, d *device) {
+	io.WriteString(w, "install nftables,dnsmasq\n")
+	// We assume that the prefix has already been validated.
+	p := netaddr.MustParseIPPrefix(d.topoDev.Attr("mgmt_ip"))
+	io.WriteString(w, "write /etc/sysconfig/network-scripts/ifcfg-eth0:"+
+		"TYPE=Ethernet\\\nDEVICE=eth0\\\nPEERDNS=yes\\\nBOOTPROTO=dhcp\\\nONBOOT=yes\n")
+	io.WriteString(w, "write /etc/sysconfig/network-scripts/ifcfg-eth1:"+
+		strings.Replace(
+			fmt.Sprintf(ifcfgEth1, p.IP, p.Bits),
+			"\n", "\\\n", -1,
+		),
+	)
+	io.WriteString(w, "write /etc/sysconfig/nftables.conf:"+
+		strings.Replace(nftablesRuleset, "\n", "\\\n", -1)+"\n")
+
+	io.WriteString(w, "run-command systemctl enable nftables.service\n")
+	io.WriteString(w, "write /etc/sysctl.d/98-ipfwd.conf:net.ipv4.ip_forward=1\n")
+	io.WriteString(w, "write /etc/dnsmasq.conf:"+
+		strings.Replace(dnsmasqConf, "\n", "\\\n", -1)+"\n")
+	io.WriteString(w, "run-command systemctl disable systemd-resolved.service\n")
+	io.WriteString(w, "run-command systemctl enable dnsmasq.service\n")
+}
+
+func generateHostsFile(ctx context.Context, r *Runner, t *topology.T) (file []byte, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("generateHostsFile: %w", err)
+		}
+	}()
+	// BUG(ls): Allocation of mgmt IP addresses should probably happen in
+	// package topology (or at least during (*Runner).setupAutoMgmt).
+	mgmtServer := r.devices["oob-mgmt-server"]
+	prefix, err := netaddr.ParseIPPrefix(mgmtServer.topoDev.Attr("mgmt_ip"))
+	if err != nil {
+		return nil, err
+	}
+	var builder netaddr.IPSetBuilder
+	builder.AddPrefix(prefix)
+	builder.Remove(prefix.IP)          // remove mgmtServer's own address
+	builder.Remove(prefix.Masked().IP) // remove network address
+
+	var buf bytes.Buffer
+	for name, d := range r.devices {
+		if name == "oob-mgmt-server" || name == "oob-mgmt-switch" {
+			continue
+		}
+		ipAttr := d.topoDev.Attr("mgmt_ip")
+		if ipAttr == "" {
+			continue
+		}
+		eth0 := d.interfaces[0]
+		if eth0.name != "eth0" {
+			// most likely, device does not have a mgmt interface
+			continue
+		}
+		mgmtIP, err := netaddr.ParseIP(ipAttr)
+		if err != nil {
+			return nil, err
+		}
+		builder.Remove(mgmtIP)
+		fmt.Fprintf(&buf, "%s,%s,%s\n", eth0.mac, mgmtIP, name)
+
+	}
+
+	allocRanges := builder.IPSet().Ranges()
+	rangei := 0
+	cursor := allocRanges[rangei].From
+	nextIP := func() (netaddr.IP, bool) {
+		for rangei < len(allocRanges) {
+			ip := cursor
+			if allocRanges[rangei].Contains(ip) {
+				cursor = cursor.Next()
+				// don't return bcast addr
+				if rangei == len(allocRanges)-1 &&
+					ip.Compare(allocRanges[rangei].To) == 0 {
+					return netaddr.IP{}, false
+				}
+				return ip, true
+			}
+			rangei++
+			cursor = allocRanges[rangei].From
+		}
+		return netaddr.IP{}, false
+	}
+
+	for name, d := range r.devices {
+		if name == "oob-mgmt-server" || name == "oob-mgmt-switch" {
+			continue
+		}
+		eth0 := d.interfaces[0]
+		if eth0.name != "eth0" {
+			// most likely, device does not have a mgmt interface
+			continue
+		}
+		mgmtIP, ok := nextIP()
+		if !ok {
+			return nil, fmt.Errorf("mgmt_ip range exhausted")
+		}
+		fmt.Fprintf(&buf, "%s,%s,%s\n", eth0.mac, mgmtIP, name)
+
+	}
+
+	return buf.Bytes(), nil
+}

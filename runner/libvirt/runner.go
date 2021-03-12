@@ -525,6 +525,16 @@ func (r *Runner) customizeDomains(ctx context.Context, t *topology.T) (err error
 		for _, k := range r.authorizedKeys {
 			fmt.Fprintf(&buf, "ssh-inject %s:string:%s\n", user, k)
 		}
+		if d.topoDev.Function() == topology.FunctionOOBServer {
+			hostsBytes, err1 := generateHostsFile(ctx, r, t)
+			if err != nil {
+				err = err1
+				break
+			}
+			fmt.Fprintf(&buf, "write /etc/dnsmasq.hostsfile:%s\n",
+				bytes.Replace(hostsBytes, []byte("\n"),
+					[]byte("\\\n"), -1))
+		}
 		extra := strings.NewReader(buf.String())
 		buf.Reset()
 		d := d

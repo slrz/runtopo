@@ -1,12 +1,18 @@
 package topology
 
-import "strconv"
+import (
+	"net"
+	"strconv"
+
+	"inet.af/netaddr"
+)
 
 // A Device corresponds to a node in the parsed topology.
 type Device struct {
-	Name  string
-	attrs map[string]string
-	links []Link
+	Name   string
+	attrs  map[string]string
+	links  []Link
+	mgmtIP netaddr.IP
 }
 
 // Function returns the DeviceFunction associated with d.
@@ -45,6 +51,15 @@ func (d *Device) OSImage() string {
 		return s
 	}
 	return builtinDefaults[d.Function()].OS
+}
+
+// MgmtIP returns the management IP address assigned to d (only when
+// AutoMgmtNetwork is configured).
+func (d *Device) MgmtIP() *net.IPAddr {
+	if d.mgmtIP.IsZero() {
+		return nil
+	}
+	return d.mgmtIP.IPAddr()
 }
 
 // Links returns all connections involving d as an endpoint.

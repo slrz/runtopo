@@ -6,6 +6,7 @@ import (
 
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding/dot"
+	"inet.af/netaddr"
 )
 
 // T represents a parsed network topology graph.
@@ -167,6 +168,34 @@ func (t *T) setupAutoMgmtNetwork() error {
 	}
 	t.mgmtLinks = append(t.mgmtLinks, mgmtSwitchMgmtLink, mgmtLink)
 
+	mgmtPrefix, err := netaddr.ParseIPPrefix(mgmtServer.Attr("mgmt_ip"))
+	if err != nil {
+		return err
+	}
+	a := newIPAllocator(mgmtPrefix)
+	a.reserve(mgmtPrefix.IP) // remove mgmtServer's own address
+	// reserve addresses configured with explicit node attrs
+	for _, d := range t.devs {
+		if d.Function() == FunctionOOBSwitch ||
+			d.Function() == FunctionOOBServer {
+			continue
+		}
+		ipStr := d.Attr("mgmt_ip")
+		if ipStr == "" || d.Attr("no_mgmt") != "" {
+			continue
+		}
+		ip, err := netaddr.ParseIP(ipStr)
+		if err != nil {
+			return fmt.Errorf("device %s: parse ip: %v (mgmt_ip: %s)",
+				d.Name, err, ipStr)
+		}
+		if ok := a.reserve(ip); !ok {
+			return fmt.Errorf("device %s: unable to reserve ip %s",
+				d.Name, ip)
+		}
+		d.mgmtIP = ip
+	}
+
 	// Wire up devices to the OOB switch.
 	ifIndex := 2
 	for _, d := range t.devs {
@@ -185,6 +214,18 @@ func (t *T) setupAutoMgmtNetwork() error {
 		}
 		t.mgmtLinks = append(t.mgmtLinks, l)
 		ifIndex++
+
+		if !d.mgmtIP.IsZero() {
+			// has explicit mgmt_ip attr, address reserved above
+			continue
+		}
+		ip, ok := a.allocate()
+		if !ok {
+			return fmt.Errorf(
+				"device %s: mgmt ip range exhausted (prefix: %s)",
+				d.Name, mgmtPrefix)
+		}
+		d.mgmtIP = ip
 	}
 
 	return nil

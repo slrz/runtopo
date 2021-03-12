@@ -3,6 +3,8 @@ package libvirt
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -22,6 +24,17 @@ type eofReader struct{}
 
 func (eofReader) Read([]byte) (int, error) {
 	return 0, io.EOF
+}
+
+// RandomString generates a printable random string of length n using a
+// cryptographically-secure RNG.
+func randomString(n int) string {
+	scratch := make([]byte, (n+3)/4*3)
+	if _, err := rand.Read(scratch); err != nil {
+		panic(err)
+	}
+
+	return base64.URLEncoding.EncodeToString(scratch)[:n]
 }
 
 // ValidateDomainXML validates the provided XML against the libvirt domain

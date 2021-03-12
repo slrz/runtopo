@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
+
+	"golang.org/x/crypto/bcrypt"
+	"slrz.net/runtopo/topology"
 )
 
 func customizeDomain(ctx context.Context, uri string, d *device, extraCommands io.Reader) (err error) {
@@ -43,14 +47,23 @@ func customizeDomain(ctx context.Context, uri string, d *device, extraCommands i
 
 func commandsForFunction(d *device) []byte {
 	var buf bytes.Buffer
-	if isCumulusFunction(d.topoDev.Function()) {
+	if f := d.topoDev.Function(); isCumulusFunction(f) {
 		// These eat enough memory to summon the OOM killer in 512MiB
 		// VMs.
 		buf.WriteString("run-command systemctl disable netq-agent.service\n")
 		buf.WriteString("run-command systemctl disable netqd@mgmt.service\n")
-		buf.WriteString("run-command passwd -x 99999 cumulus\n")
-		buf.WriteString("run-command passwd -d cumulus\n") // XXX
+		buf.WriteString("run-command passwd -x 99999 cumulus\n") // CL4+
 		buf.WriteString("write /etc/sudoers.d/no-passwd:%sudo     ALL=(ALL:ALL) NOPASSWD: ALL\n")
+		// Set password for user cumulus to some random string.
+		// Otherwise, CL4+ forces a password change on first login.
+		cryptPW, err := bcrypt.GenerateFromPassword([]byte(randomString(16)), -1)
+		if err != nil {
+			panic(err) // something is very wrong if this happens
+		}
+		fmt.Fprintf(&buf, "run-command usermod -p %s cumulus\n", cryptPW)
+		if f == topology.FunctionOOBSwitch {
+			writeExtraMgmtSwitchCommands(&buf, d)
+		}
 		return buf.Bytes()
 	}
 
@@ -73,3 +86,22 @@ func commandsForFunction(d *device) []byte {
 
 	return buf.Bytes()
 }
+
+func writeExtraMgmtSwitchCommands(w io.Writer, d *device) {
+	var bridgePorts []string
+	for _, intf := range d.interfaces {
+		if intf.name == "eth0" {
+			// skip mgmt interface
+			continue
+		}
+		bridgePorts = append(bridgePorts, intf.name)
+	}
+	bridgeConf := "auto bridge\niface bridge\n    bridge-ports " +
+		strings.Join(bridgePorts, " ") + "\n"
+
+	// From virt-customize(1): […] arguments can be spread across multiple
+	// lines, by adding a "\" (continuation character) at the of a line […]
+	io.WriteString(w, "write /etc/network/interfaces.d/bridge.intf:"+
+		strings.Replace(bridgeConf, "\n", "\\\n", -1)+"\n")
+}
+

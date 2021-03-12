@@ -25,12 +25,28 @@ setup process.
 
 ## Installation
 
+```
+go get [-u] slrz.net/runtopo
+```
+
 ## Configuration
 
 ## Supported DOT Attributes
 
+The following attributes are supported on nodes and edges, respectively. If not
+supplied, a (possibly configurable) default is used.
+
 ### Node Attributes
+* os -- sets the operating system image to use for the device. Should be a URL
+  referring to a QCOW2 image. **NOTE:** this differs from topology\_converter
+  which wants a Vagrant box specified here.
+* config -- a provisioning script executed in the context of the device
+* cpu -- number of VCPUs to assign to device
+* memory -- device memory size in MiB
+* tunnelip -- IP address for libvirt UDP tunnels associated with this device
+* mgmt\_ip -- creates DHCP reservation when AutoMgmtNetwork is enabled
 
 ### Edge Attributes
+* left\_mac/right\_mac -- explicitly specify MAC address for interface
 
 ## Defaults

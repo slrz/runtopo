@@ -156,6 +156,12 @@ func writeExtraMgmtServerCommands(w io.Writer, d *device) {
 	io.WriteString(w, "write /etc/dnsmasq.conf:"+
 		strings.Replace(dnsmasqConf, "\n", "\\\n", -1)+"\n")
 	io.WriteString(w, "run-command systemctl disable systemd-resolved.service\n")
+	// Ensure /etc/resolv.conf is a regular file (and not a symlink to
+	// systemd-resolved's stub-resolv.conf). Dnsmasq reads its upstream
+	// resolvers from resolv.conf and we need NM to write the ones received
+	// from DHCP there.
+	io.WriteString(w, "delete /etc/resolv.conf\n")
+	io.WriteString(w, "write /etc/resolv.conf:#placeholder\n")
 	io.WriteString(w, "run-command systemctl enable dnsmasq.service\n")
 }
 

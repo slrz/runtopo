@@ -146,7 +146,7 @@ func writeExtraMgmtServerCommands(w io.Writer, d *device) {
 		strings.Replace(
 			fmt.Sprintf(ifcfgEth1, p.IP, p.Bits),
 			"\n", "\\\n", -1,
-		),
+		)+"\n",
 	)
 	io.WriteString(w, "write /etc/sysconfig/nftables.conf:"+
 		strings.Replace(nftablesRuleset, "\n", "\\\n", -1)+"\n")

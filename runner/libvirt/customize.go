@@ -62,6 +62,11 @@ func commandsForFunction(d *device) []byte {
 			panic(err) // something is very wrong if this happens
 		}
 		fmt.Fprintf(&buf, "run-command usermod -p %s cumulus\n", cryptPW)
+
+		// libguestfs (1.44) thinks it doesn't know how to set
+		// hostnames for CL. Work around by directly writing to
+		// /etc/hostname.
+		fmt.Fprintf(&buf, "write /etc/hostname:%s\\\n\n", d.topoDev.Name)
 		if f == topology.FunctionOOBSwitch {
 			writeExtraMgmtSwitchCommands(&buf, d)
 		}

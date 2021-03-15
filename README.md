@@ -31,6 +31,8 @@ go get [-u] slrz.net/runtopo
 
 ## Configuration
 
+Coming soon.
+
 ## Supported DOT Attributes
 
 The following attributes are supported on nodes and edges, respectively. If not
@@ -45,8 +47,14 @@ supplied, a (possibly configurable) default is used.
 * memory -- device memory size in MiB
 * tunnelip -- IP address for libvirt UDP tunnels associated with this device
 * mgmt\_ip -- creates DHCP reservation when AutoMgmtNetwork is enabled
+* no\_mgmt -- do not create management interface even when AutoMgmtNetwork is enabled
+* function -- one of [oob-server, oob-switch, exit, superspine, spine, leaf,
+  tor, host] or *fake* to not simulate the device at all but still make links
+  appear as up to the remote side
 
 ### Edge Attributes
 * left\_mac/right\_mac -- explicitly specify MAC address for interface
 
 ## Defaults
+
+Coming soon.

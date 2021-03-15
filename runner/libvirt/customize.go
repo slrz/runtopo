@@ -121,6 +121,7 @@ table ip nat {
 	dnsmasqConf = `
 strict-order
 interface=eth1
+dhcp-range=%s,static
 dhcp-no-override
 dhcp-authoritative
 dhcp-hostsfile=/etc/dnsmasq.hostsfile
@@ -154,7 +155,8 @@ func writeExtraMgmtServerCommands(w io.Writer, d *device) {
 	io.WriteString(w, "run-command systemctl enable nftables.service\n")
 	io.WriteString(w, "write /etc/sysctl.d/98-ipfwd.conf:net.ipv4.ip_forward=1\n")
 	io.WriteString(w, "write /etc/dnsmasq.conf:"+
-		strings.Replace(dnsmasqConf, "\n", "\\\n", -1)+"\n")
+		strings.Replace(fmt.Sprintf(dnsmasqConf, p.Masked().IP),
+			"\n", "\\\n", -1)+"\n")
 	io.WriteString(w, "run-command systemctl disable systemd-resolved.service\n")
 	// Ensure /etc/resolv.conf is a regular file (and not a symlink to
 	// systemd-resolved's stub-resolv.conf). Dnsmasq reads its upstream

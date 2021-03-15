@@ -178,74 +178,20 @@ func generateHostsFile(ctx context.Context, r *Runner, t *topology.T) (file []by
 			err = fmt.Errorf("generateHostsFile: %w", err)
 		}
 	}()
-	// BUG(ls): Allocation of mgmt IP addresses should probably happen in
-	// package topology (or at least during (*Runner).setupAutoMgmt).
-	mgmtServer := r.devices["oob-mgmt-server"]
-	prefix, err := netaddr.ParseIPPrefix(mgmtServer.topoDev.Attr("mgmt_ip"))
-	if err != nil {
-		return nil, err
-	}
-	var builder netaddr.IPSetBuilder
-	builder.AddPrefix(prefix)
-	builder.Remove(prefix.IP)          // remove mgmtServer's own address
-	builder.Remove(prefix.Masked().IP) // remove network address
 
 	var buf bytes.Buffer
 	for name, d := range r.devices {
 		if name == "oob-mgmt-server" || name == "oob-mgmt-switch" {
 			continue
 		}
-		ipAttr := d.topoDev.Attr("mgmt_ip")
-		if ipAttr == "" {
-			continue
-		}
 		eth0 := d.interfaces[0]
 		if eth0.name != "eth0" {
 			// most likely, device does not have a mgmt interface
 			continue
 		}
-		mgmtIP, err := netaddr.ParseIP(ipAttr)
-		if err != nil {
-			return nil, err
-		}
-		builder.Remove(mgmtIP)
-		fmt.Fprintf(&buf, "%s,%s,%s\n", eth0.mac, mgmtIP, name)
-
-	}
-
-	allocRanges := builder.IPSet().Ranges()
-	rangei := 0
-	cursor := allocRanges[rangei].From
-	nextIP := func() (netaddr.IP, bool) {
-		for rangei < len(allocRanges) {
-			ip := cursor
-			if allocRanges[rangei].Contains(ip) {
-				cursor = cursor.Next()
-				// don't return bcast addr
-				if rangei == len(allocRanges)-1 &&
-					ip.Compare(allocRanges[rangei].To) == 0 {
-					return netaddr.IP{}, false
-				}
-				return ip, true
-			}
-			rangei++
-			cursor = allocRanges[rangei].From
-		}
-		return netaddr.IP{}, false
-	}
-
-	for name, d := range r.devices {
-		if name == "oob-mgmt-server" || name == "oob-mgmt-switch" {
+		mgmtIP := d.topoDev.MgmtIP()
+		if mgmtIP == nil {
 			continue
-		}
-		eth0 := d.interfaces[0]
-		if eth0.name != "eth0" {
-			// most likely, device does not have a mgmt interface
-			continue
-		}
-		mgmtIP, ok := nextIP()
-		if !ok {
-			return nil, fmt.Errorf("mgmt_ip range exhausted")
 		}
 		fmt.Fprintf(&buf, "%s,%s,%s\n", eth0.mac, mgmtIP, name)
 

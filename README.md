@@ -1,4 +1,5 @@
 # The runtopo Network Simulation Tool
+[![Go Reference](https://pkg.go.dev/badge/slrz.net/runtopo.svg)](https://pkg.go.dev/slrz.net/runtopo)
 
 Runtopo simulates a network topology described using the [DOT graph description
 language](https://www.graphviz.org/doc/info/lang.html). Network elements and

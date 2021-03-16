@@ -121,8 +121,8 @@ func NewRunner(opts ...RunnerOption) *Runner {
 		namePrefix: "runtopo-",
 		tunnelIP:   net.IPv4(127, 0, 0, 1),
 
-		// BUG(ls): The default range matches the one used by
-		// topology_converter. It belongs to Cumulus though and we
+		// BUG(ls): The default MAC address range matches the one used
+		// by topology_converter. It belongs to Cumulus though and we
 		// probably shouldn't use it without asking them.
 		macBase:     mustParseMAC("44:38:39:00:00:00"),
 		portBase:    1e4,

@@ -52,7 +52,7 @@ func TestDnsmasqHostsFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	content, err := generateHostsFile(ctx, r, topo)
+	content := generateDnsmasqHostsFile(gatherHosts(ctx, r, topo))
 	if err != nil {
 		t.Fatal(err)
 	}

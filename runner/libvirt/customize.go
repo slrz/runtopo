@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os/exec"
 	"strings"
 
@@ -172,14 +173,14 @@ func writeExtraMgmtServerCommands(w io.Writer, d *device) {
 	io.WriteString(w, "run-command systemctl enable dnsmasq.service\n")
 }
 
-func generateHostsFile(ctx context.Context, r *Runner, t *topology.T) (file []byte, err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("generateHostsFile: %w", err)
-		}
-	}()
+type etherHost struct {
+	name string
+	ip   *net.IPAddr
+	mac  net.HardwareAddr
+}
 
-	var buf bytes.Buffer
+func gatherHosts(ctx context.Context, r *Runner, t *topology.T) []etherHost {
+	var hosts []etherHost
 	for name, d := range r.devices {
 		if name == "oob-mgmt-server" || name == "oob-mgmt-switch" {
 			continue
@@ -193,9 +194,20 @@ func generateHostsFile(ctx context.Context, r *Runner, t *topology.T) (file []by
 		if mgmtIP == nil {
 			continue
 		}
-		fmt.Fprintf(&buf, "%s,%s,%s\n", eth0.mac, mgmtIP, name)
-
+		hosts = append(hosts, etherHost{
+			name: name,
+			ip:   mgmtIP,
+			mac:  eth0.mac,
+		})
 	}
 
-	return buf.Bytes(), nil
+	return hosts
+}
+
+func generateDnsmasqHostsFile(hosts []etherHost) []byte {
+	var buf bytes.Buffer
+	for _, h := range hosts {
+		fmt.Fprintf(&buf, "%s,%s,%s\n", h.mac, h.ip, h.name)
+	}
+	return buf.Bytes()
 }

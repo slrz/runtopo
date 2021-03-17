@@ -20,6 +20,9 @@ var (
 		"connect to specified `URI`")
 	macAddrBase = flag.String("macbase", os.Getenv("RUNTOPO_MAC_BASE"),
 		"auto-assigned MAC addresses start at `base`")
+	namePrefix = flag.String("nameprefix",
+		getEnvOrDefault("RUNTOPO_NAME_PREFIX", "runtopo-"),
+		"prefix names of created resources with `string`")
 	portBase = flag.Int("portbase", atoi(getEnvOrDefault("RUNTOPO_PORT_BASE", "10000")),
 		"start allocating UDP ports at `base` instead of the default")
 	portGap = flag.Int("portgap", atoi(getEnvOrDefault("RUNTOPO_PORT_GAP", "1000")),
@@ -53,6 +56,7 @@ func main() {
 	}
 
 	runnerOpts := []libvirt.RunnerOption{
+		libvirt.WithNamePrefix(*namePrefix),
 		libvirt.WithPortBase(*portBase),
 		libvirt.WithPortGap(*portGap),
 		libvirt.WithStoragePool(*storagePool),

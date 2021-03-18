@@ -172,6 +172,9 @@ func (r *Runner) Run(ctx context.Context, t *topology.T) (err error) {
 	if err := r.customizeDomains(ctx, t); err != nil {
 		return err
 	}
+	if err := r.startDomains(ctx, t); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -554,6 +557,37 @@ func (r *Runner) customizeDomains(ctx context.Context, t *topology.T) (err error
 		}
 	}
 	return err
+}
+
+func (r *Runner) startDomains(ctx context.Context, t *topology.T) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("startDomains: %w", err)
+		}
+	}()
+	ds := t.Devices()
+	sort.Slice(ds, func(i, j int) bool {
+		return ds[i].Function() < ds[j].Function()
+	})
+
+	var started []*libvirt.Domain
+	defer func() {
+		if err != nil {
+			for _, d := range started {
+				d.Destroy()
+			}
+		}
+	}()
+	for _, d := range ds {
+		dom := r.domains[r.namePrefix+d.Name]
+		if err := dom.Create(); err != nil {
+			return fmt.Errorf("domain %s: %w",
+				r.namePrefix+d.Name, err)
+		}
+		started = append(started, dom)
+	}
+
+	return nil
 }
 
 // internal representation for a device

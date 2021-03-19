@@ -1,3 +1,5 @@
+// Command runtopo starts up a network topology as described by the DOT file
+// provided as a positional argument.
 package main
 
 import (

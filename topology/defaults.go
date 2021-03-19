@@ -1,6 +1,6 @@
 package topology
 
-type DeviceDefaults struct {
+type deviceDefaults struct {
 	OS     string `yaml:"os"`
 	VCPUs  int    `yaml:"vcpus"`
 	Memory int64  `yaml:"memory"`
@@ -11,7 +11,7 @@ const (
 	fedoraQCOW2  = "https://download.fedoraproject.org/pub/fedora/linux/releases/33/Cloud/x86_64/images/Fedora-Cloud-Base-33-1.2.x86_64.qcow2"
 )
 
-var builtinDefaults = [...]DeviceDefaults{
+var builtinDefaults = [...]deviceDefaults{
 	FunctionOOBServer:  {OS: fedoraQCOW2, VCPUs: 1, Memory: 768 << 20},
 	FunctionOOBSwitch:  {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
 	FunctionExit:       {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},

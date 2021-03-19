@@ -1,10 +1,12 @@
 package libvirt
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -20,10 +22,11 @@ import (
 
 // Runner implements the topology.Runner interface using libvirt/qemu.
 type Runner struct {
-	conn       *libvirt.Connect
-	devices    map[string]*device
-	domains    map[string]*libvirt.Domain
-	baseImages map[string]*libvirt.StorageVol
+	conn         *libvirt.Connect
+	devices      map[string]*device
+	domains      map[string]*libvirt.Domain
+	baseImages   map[string]*libvirt.StorageVol
+	sshConfigOut io.Writer
 
 	// fields below are immutable after initialization
 	uri            string // libvirt connection URI
@@ -114,6 +117,14 @@ func WithAuthorizedKeys(keys ...string) RunnerOption {
 	}
 }
 
+// WriteSSHConfig configures the Runner to write an OpenSSH client
+// configuration file to w. See ssh_config(5) for a description of its format.
+func WriteSSHConfig(w io.Writer) RunnerOption {
+	return func(r *Runner) {
+		r.sshConfigOut = w
+	}
+}
+
 // NewRunner constructs a runner configured with the specified options.
 func NewRunner(opts ...RunnerOption) *Runner {
 	r := &Runner{
@@ -174,6 +185,13 @@ func (r *Runner) Run(ctx context.Context, t *topology.T) (err error) {
 	}
 	if err := r.startDomains(ctx, t); err != nil {
 		return err
+	}
+
+	if r.sshConfigOut != nil {
+		// Caller asked us to write out an ssh_config.
+		if err := r.writeSSHConfig(ctx, t); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -588,6 +606,51 @@ func (r *Runner) startDomains(ctx context.Context, t *topology.T) (err error) {
 	}
 
 	return nil
+}
+
+// WriteSSHConfig genererates an OpenSSH client config and writes it to r.sshConfigOut.
+func (r *Runner) writeSSHConfig(ctx context.Context, t *topology.T) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("writeSSHConfig: %w", err)
+		}
+	}()
+
+	// Retrieve the mgmt server's DHCP lease as we're going to use
+	// it as a jump host.
+	ip, err := waitForLease(ctx, r.domains[r.namePrefix+"oob-mgmt-server"])
+	if err != nil {
+		return err
+	}
+
+	w := bufio.NewWriter(r.sshConfigOut)
+
+	fmt.Fprintf(w, `Host oob-mgmt-server
+  Hostname %s
+  User root
+  UserKnownHostsFile /dev/null
+  StrictHostKeyChecking no
+`, ip)
+
+	for _, d := range t.Devices() {
+		if d.Function() == topology.FunctionOOBServer ||
+			d.Function() == topology.FunctionOOBSwitch {
+			continue
+		}
+		user := "root"
+		if isCumulusFunction(d.Function()) {
+			user = "cumulus"
+		}
+		fmt.Fprintf(w, `Host %s
+  User %s
+  ProxyJump oob-mgmt-server
+  UserKnownHostsFile /dev/null
+  StrictHostKeyChecking no
+`, d.Name, user)
+
+	}
+
+	return w.Flush()
 }
 
 // internal representation for a device

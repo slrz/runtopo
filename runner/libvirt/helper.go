@@ -16,7 +16,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"inet.af/netaddr"
+	"libvirt.org/libvirt-go"
 	"slrz.net/runtopo/topology"
 )
 
@@ -252,4 +255,43 @@ func isCumulusFunction(f topology.DeviceFunction) bool {
 		return true
 	}
 	return false
+}
+
+// Waits until d received a DHCP lease from a libvirt network and return its
+// address.
+func waitForLease(ctx context.Context, d *libvirt.Domain) (ip netaddr.IP, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("waitForLease: %w", err)
+		}
+	}()
+	var intf libvirt.DomainInterface
+	for {
+		xs, err1 := d.ListAllInterfaceAddresses(
+			libvirt.DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE,
+		)
+		if err1 != nil {
+			err = err1
+			break
+		}
+		if len(xs) > 0 {
+			intf = xs[0]
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return netaddr.IP{}, ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	if err != nil {
+		return netaddr.IP{}, err
+	}
+	if len(intf.Addrs) == 0 {
+		return netaddr.IP{}, fmt.Errorf(
+			"interface %s: no addresses (hwaddr=%s)",
+			intf.Name, intf.Hwaddr)
+	}
+	return netaddr.ParseIP(intf.Addrs[0].Addr)
 }

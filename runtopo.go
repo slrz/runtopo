@@ -34,6 +34,9 @@ var (
 	storagePool = flag.String("pool",
 		getEnvOrDefault("RUNTOPO_LIBVIRT_POOL", "default"),
 		"store downloaded base and created diff images in libvirt storage `pool`")
+	writeSSHConfig = flag.String("writesshconfig",
+		os.Getenv("RUNTOPO_WRITE_SSH_CONFIG"),
+		"write OpenSSH client configuration to `file`")
 )
 
 func main() {
@@ -73,6 +76,18 @@ func main() {
 			log.Fatal(err)
 		}
 		runnerOpts = append(runnerOpts, libvirt.WithMACAddressBase(base))
+	}
+	if s := *writeSSHConfig; s != "" {
+		fd, err := os.Create(s)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer func() {
+			if err := fd.Close(); err != nil {
+				log.Printf("writesshconfig: %v", err)
+			}
+		}()
+		runnerOpts = append(runnerOpts, libvirt.WriteSSHConfig(fd))
 	}
 	r := libvirt.NewRunner(runnerOpts...)
 

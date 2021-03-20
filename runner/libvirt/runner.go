@@ -170,10 +170,21 @@ func (r *Runner) Run(ctx context.Context, t *topology.T) (err error) {
 		return err
 	}
 	r.conn = c
-	if err := r.downloadBaseImages(ctx, t); err != nil {
+
+	var (
+		downloadBaseImages = r.downloadBaseImages
+		createVolumes      = r.createVolumes
+	)
+	// If the caller specified a target directory for images, don't go
+	// through libvirt but write to the file system directly.
+	if r.imageDir != "" {
+		downloadBaseImages = r.downloadBaseImagesDirect
+		createVolumes = r.createVolumesDirect
+	}
+	if err := downloadBaseImages(ctx, t); err != nil {
 		return err
 	}
-	if err := r.createVolumes(ctx, t); err != nil {
+	if err := createVolumes(ctx, t); err != nil {
 		return err
 	}
 

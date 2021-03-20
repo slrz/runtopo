@@ -1,6 +1,9 @@
 package topology
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParse(t *testing.T) {
 	topo, err := ParseFile("testdata/leafspine-nomgmt.dot")
@@ -35,5 +38,19 @@ func TestAutoMgmtNetwork(t *testing.T) {
 	}
 	if xs := topo.Links(); len(xs) != 29 {
 		t.Errorf("got %d links, want 29", len(xs))
+	}
+}
+
+const invalidHostnamesDOT = `graph G {
+	"t" [function=tor]
+	"h_with_underscore" [function=host]
+	"t":swp1 -- "h_with_underscore":eth0
+}
+`
+
+func TestInvalidHostnames(t *testing.T) {
+	_, err := Parse([]byte(invalidHostnamesDOT))
+	if err == nil || !strings.Contains(err.Error(), "invalid hostname") {
+		t.Errorf("got err=%v, want invalid hostname", err)
 	}
 }

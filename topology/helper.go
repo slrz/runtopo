@@ -59,7 +59,7 @@ func isValidHostname(s string) bool {
 	if !isASCIIAlpha(rune(s[0])) {
 		return false
 	}
-	for _, c := range s[1 : len(s)-1] {
+	for _, c := range s[1:] {
 		if !isASCIIAlNumHyp(c) {
 			return false
 		}

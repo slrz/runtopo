@@ -37,6 +37,8 @@ var (
 	writeSSHConfig = flag.String("writesshconfig",
 		os.Getenv("RUNTOPO_WRITE_SSH_CONFIG"),
 		"write OpenSSH client configuration to `file`")
+	destroy = flag.Bool("destroy", os.Getenv("RUNTOPO_DESTROY") != "",
+		"destroy resources created by previous invocation")
 )
 
 func main() {
@@ -92,6 +94,13 @@ func main() {
 	r := libvirt.NewRunner(runnerOpts...)
 
 	ctx := context.TODO()
+	if *destroy {
+		if err := r.Destroy(ctx, topo); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
 	if err := r.Run(ctx, topo); err != nil {
 		log.Fatal(err)
 	}

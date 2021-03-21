@@ -208,6 +208,40 @@ func (r *Runner) Run(ctx context.Context, t *topology.T) (err error) {
 	return nil
 }
 
+// Destroy destroys any resources created by a previous Run invocation. Destroy
+// may be called on a different Runner instance than Run as long as the
+// instance was created using the same same of RunnerOptions.
+func (r *Runner) Destroy(ctx context.Context, t *topology.T) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("libvirt.(*Runner).Destroy: %w", err)
+		}
+	}()
+	if err := r.buildInventory(t); err != nil {
+		return err
+	}
+
+	c, err := libvirt.NewConnect(r.uri)
+	if err != nil {
+		return err
+	}
+	r.conn = c
+
+	if err := r.undefineDomains(ctx, t); err != nil {
+		return err
+	}
+
+	deleteVolumes := r.deleteVolumes
+	if r.imageDir != "" {
+		deleteVolumes = r.deleteVolumesDirect
+	}
+	if err := deleteVolumes(ctx, t); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *Runner) buildInventory(t *topology.T) (err error) {
 	defer func() {
 		if err != nil {
@@ -480,6 +514,32 @@ func (r *Runner) createVolumes(ctx context.Context, t *topology.T) (err error) {
 	return nil
 }
 
+// DeleteVolumes deletes any created volumes from the libvirt storage pool
+// r.storagePool.
+func (r *Runner) deleteVolumes(ctx context.Context, t *topology.T) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("deleteVolumes: %w", err)
+		}
+	}()
+	pool, err := r.conn.LookupStoragePoolByName(r.storagePool)
+	if err != nil {
+		return err
+	}
+	defer pool.Free()
+
+	for _, d := range r.devices {
+		v, lerr := pool.LookupStorageVolByName(d.name)
+		if lerr != nil {
+			continue
+		}
+		_ = v.Delete(0)
+		v.Free()
+	}
+
+	return nil
+}
+
 func (r *Runner) createVolumesDirect(ctx context.Context, t *topology.T) (err error) {
 	var created []string
 	defer func() {
@@ -504,6 +564,25 @@ func (r *Runner) createVolumesDirect(ctx context.Context, t *topology.T) (err er
 	}
 
 	return nil
+}
+
+// DeleteVolumesDirect deletes any created volumes from the file system
+// location r.imageDir.
+func (r *Runner) deleteVolumesDirect(ctx context.Context, t *topology.T) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("deleteVolumesDirect: %w", err)
+		}
+	}()
+
+	for _, d := range r.devices {
+		rerr := os.Remove(filepath.Join(r.imageDir, d.name))
+		if rerr != nil && !errors.Is(err, os.ErrNotExist) && err == nil {
+			err = rerr
+		}
+	}
+
+	return err
 }
 
 func (r *Runner) defineDomains(ctx context.Context, t *topology.T) (err error) {
@@ -539,6 +618,27 @@ func (r *Runner) defineDomains(ctx context.Context, t *topology.T) (err error) {
 		defined = append(defined, dom)
 		r.domains[d.name] = dom
 	}
+	return nil
+}
+
+// UndefineDomains deletes any created libvirt guest domains, shutting them
+// down if running.
+func (r *Runner) undefineDomains(ctx context.Context, t *topology.T) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("undefineDomains: %w", err)
+		}
+	}()
+	for _, d := range r.devices {
+		dom, lerr := r.conn.LookupDomainByName(d.name)
+		if lerr != nil {
+			continue
+		}
+		_ = dom.Destroy()
+		_ = dom.Undefine()
+		dom.Free()
+	}
+
 	return nil
 }
 

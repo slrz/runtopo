@@ -21,6 +21,10 @@ type T struct {
 // Option may be passed to Parse to customize topology processing.
 type Option func(*T)
 
+// WithAutoMgmtNetwork enables an out-of-band management network. The topology
+// is augmented with a management switch and server, with the latter running
+// DHCP and DNS services for all devices. Devices are automatically attached to
+// the management switch unless they have the no_mgmt node attribute set.
 var WithAutoMgmtNetwork = func(t *T) {
 	t.autoMgmt = true
 }
@@ -104,6 +108,7 @@ func (t *T) devices() []Device {
 	return ds
 }
 
+// Links returns the connections between devices, as defined in the topology.
 func (t *T) Links() []Link {
 	var ls []Link
 	for _, e := range graph.EdgesOf(t.g.Edges()) {

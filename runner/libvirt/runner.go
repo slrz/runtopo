@@ -383,7 +383,7 @@ func (r *Runner) downloadBaseImages(ctx context.Context, t *topology.T) (err err
 func (r *Runner) downloadBaseImagesDirect(ctx context.Context, t *topology.T) (err error) {
 	defer func() {
 		if err != nil {
-			err = fmt.Errorf("downloadBaseImages: %w", err)
+			err = fmt.Errorf("downloadBaseImagesDirect: %w", err)
 		}
 	}()
 	wantImages := make(map[string]struct{})
@@ -481,7 +481,7 @@ func (r *Runner) createVolumesDirect(ctx context.Context, t *topology.T) (err er
 			for _, file := range created {
 				os.Remove(file)
 			}
-			err = fmt.Errorf("createDiffImages: %w", err)
+			err = fmt.Errorf("createVolumesDirect: %w", err)
 		}
 	}()
 	for _, d := range r.devices {

@@ -29,7 +29,7 @@ var (
 		"start allocating UDP ports at `base` instead of the default")
 	portGap = flag.Int("portgap", atoi(getEnvOrDefault("RUNTOPO_PORT_GAP", "1000")),
 		"leave `num` ports between local and remote side")
-	autoMgmt = flag.Bool("automgmt", os.Getenv("RUNTPO_AUTO_MGMT") != "",
+	autoMgmt = flag.Bool("automgmt", os.Getenv("RUNTOPO_AUTO_MGMT") != "",
 		"create automagic management network")
 	storagePool = flag.String("pool",
 		getEnvOrDefault("RUNTOPO_LIBVIRT_POOL", "default"),

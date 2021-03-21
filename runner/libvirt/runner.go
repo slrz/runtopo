@@ -658,6 +658,9 @@ func (r *Runner) customizeDomains(ctx context.Context, t *topology.T) (err error
 		user := "root"
 		if isCumulusFunction(d.topoDev.Function()) {
 			user = "cumulus"
+			fmt.Fprintf(&buf, "write /etc/ptm.d/topology.dot:%s\n",
+				bytes.Replace(t.DOT(), []byte("\n"),
+					[]byte("\\\n"), -1))
 		}
 		for _, k := range r.authorizedKeys {
 			fmt.Fprintf(&buf, "ssh-inject %s:string:%s\n", user, k)

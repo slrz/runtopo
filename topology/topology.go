@@ -13,6 +13,7 @@ import (
 type T struct {
 	g    *dotGraph
 	devs map[string]*Device
+	dot  []byte
 
 	autoMgmt  bool
 	mgmtLinks []Link
@@ -74,6 +75,10 @@ func Parse(dotBytes []byte, opts ...Option) (*T, error) {
 
 	}
 
+	// Stash a copy of the input DOT graph for later use.
+	t.dot = make([]byte, len(dotBytes))
+	copy(t.dot, dotBytes)
+
 	return t, nil
 }
 
@@ -124,6 +129,11 @@ func (t *T) Links() []Link {
 		})
 	}
 	return append(ls, t.mgmtLinks...)
+}
+
+// DOT returns the original input DOT file.
+func (t *T) DOT() []byte {
+	return append([]byte(nil), t.dot...)
 }
 
 func (t *T) setupAutoMgmtNetwork() error {

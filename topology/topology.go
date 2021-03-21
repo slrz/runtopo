@@ -126,16 +126,6 @@ func (t *T) Links() []Link {
 	return append(ls, t.mgmtLinks...)
 }
 
-func (t *T) LinksFor(device string) []Link {
-	var ls []Link
-	for _, l := range t.Links() {
-		if l.From == device || l.To == device {
-			ls = append(ls, l)
-		}
-	}
-	return ls
-}
-
 func (t *T) setupAutoMgmtNetwork() error {
 	mgmtServer := t.devs["oob-mgmt-server"]
 	if mgmtServer == nil {

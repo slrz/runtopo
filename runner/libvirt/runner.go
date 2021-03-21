@@ -244,12 +244,18 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 			return err
 		}
 		base := filepath.Join(r.imageDir, path.Base(u.Path))
+		pool := r.storagePool
+		if r.imageDir != "" {
+			// Don't set pool on device when using direct FS
+			// access.
+			pool = ""
+		}
 		r.devices[topoDev.Name] = &device{
 			name:      r.namePrefix + topoDev.Name,
 			tunnelIP:  tunnelIP,
 			image:     filepath.Join(r.imageDir, r.namePrefix+topoDev.Name),
 			baseImage: base,
-			pool:      r.storagePool,
+			pool:      pool,
 			topoDev:   topoDev,
 		}
 	}

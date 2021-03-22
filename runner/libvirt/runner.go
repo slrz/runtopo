@@ -717,6 +717,9 @@ func (r *Runner) startDomains(ctx context.Context, t *topology.T) (err error) {
 		}
 	}()
 	for _, d := range ds {
+		if d.Function() == topology.FunctionFake {
+			continue
+		}
 		dom := r.domains[r.namePrefix+d.Name]
 		if err := dom.Create(); err != nil {
 			return fmt.Errorf("domain %s: %w",

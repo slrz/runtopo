@@ -33,11 +33,11 @@ func TestAutoMgmtNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if xs := topo.Devices(); len(xs) != 12 {
-		t.Errorf("got %d devices, want 12", len(xs))
+	if xs := topo.Devices(); len(xs) != 13 {
+		t.Errorf("got %d devices, want 13", len(xs))
 	}
-	if xs := topo.Links(); len(xs) != 29 {
-		t.Errorf("got %d links, want 29", len(xs))
+	if xs := topo.Links(); len(xs) != 31 {
+		t.Errorf("got %d links, want 31", len(xs))
 	}
 }
 

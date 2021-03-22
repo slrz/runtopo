@@ -26,4 +26,7 @@ graph G {
 	"leaf31":swp2 -- "spine1":swp8
 	"spine0" [config="./helper_scripts/extra_switch_config.sh" function=spine]
 	"spine1" [config="./helper_scripts/extra_switch_config.sh" function=spine]
+	"leaf30":swp3 -- "host0":eno1
+	"leaf31":swp3 -- "host0":eno2
+	"host0" [function=fake]
 }

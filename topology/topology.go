@@ -184,8 +184,8 @@ func (t *T) setupAutoMgmtNetwork() error {
 	a.reserve(mgmtPrefix.IP) // remove mgmtServer's own address
 	// reserve addresses configured with explicit node attrs
 	for _, d := range t.devs {
-		if d.Function() == FunctionOOBSwitch ||
-			d.Function() == FunctionOOBServer {
+		if f := d.Function(); f == FunctionOOBSwitch ||
+			f == FunctionOOBServer || f == FunctionFake {
 			continue
 		}
 		ipStr := d.Attr("mgmt_ip")
@@ -210,8 +210,8 @@ func (t *T) setupAutoMgmtNetwork() error {
 		if d.Attr("no_mgmt") != "" {
 			continue
 		}
-		if d.Function() == FunctionOOBSwitch ||
-			d.Function() == FunctionOOBServer {
+		if f := d.Function(); f == FunctionOOBSwitch ||
+			f == FunctionOOBServer || f == FunctionFake {
 			continue
 		}
 		l := Link{

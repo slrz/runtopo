@@ -25,6 +25,9 @@ var (
 	namePrefix = flag.String("nameprefix",
 		getEnvOrDefault("RUNTOPO_NAME_PREFIX", "runtopo-"),
 		"prefix names of created resources with `string`")
+	tunnelIP = flag.String("tunnelip",
+		getEnvOrDefault("RUNTOPO_TUNNEL_IP", "127.0.0.1"),
+		"set the default `address` for UDP tunnels")
 	portBase = flag.Int("portbase", atoi(getEnvOrDefault("RUNTOPO_PORT_BASE", "10000")),
 		"start allocating UDP ports at `base` instead of the default")
 	portGap = flag.Int("portgap", atoi(getEnvOrDefault("RUNTOPO_PORT_GAP", "1000")),
@@ -56,6 +59,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defaultTunnelIP := net.ParseIP(*tunnelIP)
+	if defaultTunnelIP == nil {
+		log.Fatalf("cannot parse tunnelip %q", *tunnelIP)
+	}
 
 	topo, err := topology.ParseFile(flag.Arg(0), topoOpts...)
 	if err != nil {
@@ -67,6 +74,7 @@ func main() {
 		libvirt.WithPortBase(*portBase),
 		libvirt.WithPortGap(*portGap),
 		libvirt.WithStoragePool(*storagePool),
+		libvirt.WithTunnelIP(defaultTunnelIP),
 		libvirt.WithAuthorizedKeys(keys...),
 	}
 	if s := *libvirtURI; s != "" {

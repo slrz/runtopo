@@ -295,7 +295,9 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 	}
 	nextPort := uint(r.portBase)
 	for _, l := range t.Links() {
+		fromTunnelIP := r.tunnelIP
 		if from := r.devices[l.From]; from != nil {
+			fromTunnelIP = from.tunnelIP
 			mac, hasMAC := l.FromMAC()
 			if !hasMAC {
 				mac = allocateMAC()
@@ -310,11 +312,16 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 				})
 				continue
 			}
+			toTunnelIP := r.tunnelIP
+			if to := r.devices[l.To]; to != nil {
+				toTunnelIP = to.tunnelIP
+			}
 			from.interfaces = append(from.interfaces, iface{
-				name:      l.FromPort,
-				mac:       mac,
-				port:      nextPort,
-				localPort: nextPort + uint(r.portGap),
+				name:           l.FromPort,
+				mac:            mac,
+				port:           nextPort,
+				localPort:      nextPort + uint(r.portGap),
+				remoteTunnelIP: toTunnelIP,
 			})
 		}
 		if to := r.devices[l.To]; to != nil {
@@ -323,10 +330,11 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 				mac = allocateMAC()
 			}
 			to.interfaces = append(to.interfaces, iface{
-				name:      l.ToPort,
-				mac:       mac,
-				port:      nextPort + uint(r.portGap),
-				localPort: nextPort,
+				name:           l.ToPort,
+				mac:            mac,
+				port:           nextPort + uint(r.portGap),
+				localPort:      nextPort,
+				remoteTunnelIP: fromTunnelIP,
 			})
 
 		}
@@ -800,11 +808,7 @@ func (d *device) templateArgs() *domainTemplateArgs {
 	for _, intf := range d.interfaces {
 		typ := "udp"
 		netSrc, udpSrc := intf.network, udpSource{
-			// BUG(ls): We need the remote device's tunnel IP to
-			// allow a single topology to span multiple hosts. Fix
-			// it by stashing away the remote IP during
-			// buildInventory.
-			Address:      d.tunnelIP.String(),
+			Address:      intf.remoteTunnelIP.String(),
 			Port:         intf.port,
 			LocalAddress: d.tunnelIP.String(),
 			LocalPort:    intf.localPort,
@@ -827,9 +831,10 @@ func (d *device) templateArgs() *domainTemplateArgs {
 
 // internal representation for an interface
 type iface struct {
-	name      string
-	mac       net.HardwareAddr
-	network   string
-	port      uint
-	localPort uint
+	name           string
+	mac            net.HardwareAddr
+	network        string
+	port           uint
+	localPort      uint
+	remoteTunnelIP net.IP
 }

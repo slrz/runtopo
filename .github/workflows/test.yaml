@@ -13,7 +13,13 @@ jobs:
     - name: Install libvirt and xmllint
       run: |
         sudo apt-get update && sudo apt-get install -y \
-          libvirt-dev libvirt-clients libxml2-utils
+          libvirt-dev libxml2-utils
+    - name: Install libvirt-clients (ubuntu-latest)
+      run: sudo apt-get install -y libvirt-clients
+      if: matrix.os == 'ubuntu-latest'
+    - name: Install libvirt-bin (ubuntu-16.04)
+      run: sudo apt-get install -y libvirt-bin
+      if: matrix.os == 'ubuntu-16.04'
     - uses: actions/setup-go@v2
       with:
         go-version: ${{ matrix.go-version }}

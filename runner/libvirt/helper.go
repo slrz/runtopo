@@ -49,8 +49,24 @@ func validateDomainXML(xmlBytes []byte) (err error) {
 		}
 	}()
 
+	// Write xmlBytes to a temp file as older versions of virt-xml-validate
+	// can't read from stdin (and even recent ones would just do the temp
+	// file thing internally).
+	fd, err := ioutil.TempFile("", "runtopo-domxml.")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(fd.Name())
+
+	if _, err := fd.Write(xmlBytes); err != nil {
+		return err
+	}
+	if err := fd.Close(); err != nil {
+		return err
+	}
+
 	var stderr bytes.Buffer
-	cmd := exec.Command("virt-xml-validate", "-", "domain")
+	cmd := exec.Command("virt-xml-validate", fd.Name(), "domain")
 	cmd.Stdin = bytes.NewReader(xmlBytes)
 	cmd.Stderr = &stderr
 

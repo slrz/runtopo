@@ -1,0 +1,27 @@
+on: [push, pull_request]
+name: Run tests
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-18.04]
+        # We require go1.16 for go:embed support.
+        # TODO: figure out how to use gotip
+        go-version: [1.16.x]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Install libvirt and xmllint
+      run: |
+        sudo apt-get update && sudo apt-get install -y \
+          libvirt-dev libvirt-clients libxml2-utils
+    # For some reason, ubuntu-18.04 puts the libvirt XML schemas into the
+    # daemon subpackage.
+    - name: Install libvirt-daemon (ubuntu-18.04)
+      run: sudo apt-get install -y libvirt-daemon
+      if: matrix.os == 'ubuntu-18.04'
+    - uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+    - uses: actions/checkout@v2
+    - name: Run tests
+      run: make test

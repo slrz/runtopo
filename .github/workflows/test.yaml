@@ -4,7 +4,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, ubuntu-16.04]
         # We require go1.16 for go:embed support.
         # TODO: figure out how to use gotip
         go-version: [1.16.x]

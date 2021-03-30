@@ -34,6 +34,9 @@ func customizeDomain(ctx context.Context, uri string, d *device, extraCommands i
 		"-c", uri,
 		"--hostname", d.topoDev.Name,
 		"--timezone", "Etc/UTC",
+		// This rename script basically does s/eth/swp/ and breaks
+		// proper interface naming using udev rules. Delete it.
+		"--delete", "/etc/hw_init.d/S10rename_eth_swp.sh",
 		"--write", "/etc/udev/rules.d/70-persistent-net.rules:"+string(rules),
 		"--commands-from-file", "/dev/stdin",
 	)

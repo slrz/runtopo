@@ -67,7 +67,8 @@ func TestDnsmasqHostsFile(t *testing.T) {
 			continue
 		}
 		if f := d.Function(); f == topology.FunctionOOBServer ||
-			f == topology.FunctionOOBSwitch {
+			f == topology.FunctionOOBSwitch ||
+			f == topology.FunctionFake {
 			continue
 		}
 		ndevices++

@@ -10,11 +10,11 @@ func TestParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if xs := topo.Devices(); len(xs) != 10 {
-		t.Errorf("got %d devices, want 10", len(xs))
+	if xs := topo.Devices(); len(xs) != 5 {
+		t.Errorf("got %d devices, want 5", len(xs))
 	}
-	if xs := topo.Links(); len(xs) != 16 {
-		t.Errorf("got %d links, want 16", len(xs))
+	if xs := topo.Links(); len(xs) != 6 {
+		t.Errorf("got %d links, want 6", len(xs))
 	}
 	for _, x := range topo.Devices() {
 		wantFunction := FunctionLeaf
@@ -33,11 +33,11 @@ func TestAutoMgmtNetwork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if xs := topo.Devices(); len(xs) != 13 {
-		t.Errorf("got %d devices, want 13", len(xs))
+	if xs := topo.Devices(); len(xs) != 8 {
+		t.Errorf("got %d devices, want 8", len(xs))
 	}
-	if xs := topo.Links(); len(xs) != 31 {
-		t.Errorf("got %d links, want 31", len(xs))
+	if xs := topo.Links(); len(xs) != 15 {
+		t.Errorf("got %d links, want 15", len(xs))
 	}
 }
 

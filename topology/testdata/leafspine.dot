@@ -1,32 +1,16 @@
 graph G {
 	"oob-mgmt-server" [function="oob-server" mgmt_ip="10.100.68.254/24"]
-	"border0" [config="./helper_scripts/extra_switch_config.sh" function=leaf]
-	"border0":swp1 -- "spine0":swp1
-	"border0":swp2 -- "spine1":swp1
-	"border1" [config="./helper_scripts/extra_switch_config.sh" function=leaf]
-	"border1":swp1 -- "spine0":swp2
-	"border1":swp2 -- "spine1":swp2
-	"leaf10" [config="./helper_scripts/extra_switch_config.sh" function=leaf]
-	"leaf10":swp1 -- "spine0":swp3
-	"leaf10":swp2 -- "spine1":swp3
-	"leaf11" [config="./helper_scripts/extra_switch_config.sh" function=leaf]
-	"leaf11":swp1 -- "spine0":swp4
-	"leaf11":swp2 -- "spine1":swp4
-	"leaf20" [config="./helper_scripts/extra_switch_config.sh" function=leaf]
-	"leaf20":swp1 -- "spine0":swp5
-	"leaf20":swp2 -- "spine1":swp5
-	"leaf21" [config="./helper_scripts/extra_switch_config.sh" function=leaf]
-	"leaf21":swp1 -- "spine0":swp6
-	"leaf21":swp2 -- "spine1":swp6
-	"leaf30" [config="./helper_scripts/extra_switch_config.sh" function=leaf]
-	"leaf30":swp1 -- "spine0":swp7
-	"leaf30":swp2 -- "spine1":swp7
-	"leaf31" [config="./helper_scripts/extra_switch_config.sh" function=leaf]
-	"leaf31":swp1 -- "spine0":swp8
-	"leaf31":swp2 -- "spine1":swp8
-	"spine0" [config="./helper_scripts/extra_switch_config.sh" function=spine]
-	"spine1" [config="./helper_scripts/extra_switch_config.sh" function=spine]
-	"leaf30":swp3 -- "host0":eno1
-	"leaf31":swp3 -- "host0":eno2
+	"leaf0" [function=leaf]
+	"leaf0":swp1 -- "spine0":swp1
+	"leaf0":swp2 -- "spine1":swp1
+	"leaf1" [function=leaf]
+	"leaf1":swp1 -- "spine0":swp2
+	"leaf1":swp2 -- "spine1":swp2
+	"leaf2" [function=leaf]
+	"leaf2":swp1 -- "spine0":swp3
+	"leaf2":swp2 -- "spine1":swp3
+	"spine0" [function=spine]
+	"spine1" [function=spine]
+	"leaf2":swp3 -- "host0":eno1
 	"host0" [function=fake]
 }

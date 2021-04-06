@@ -76,6 +76,7 @@ func main() {
 		libvirt.WithStoragePool(*storagePool),
 		libvirt.WithTunnelIP(defaultTunnelIP),
 		libvirt.WithAuthorizedKeys(keys...),
+		libvirt.WithConfigFS(os.DirFS(filepath.Dir(flag.Arg(0)))),
 	}
 	if s := *libvirtURI; s != "" {
 		runnerOpts = append(runnerOpts, libvirt.WithConnectionURI(s))

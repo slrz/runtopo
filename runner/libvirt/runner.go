@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/url"
 	"os"
@@ -27,6 +28,7 @@ type Runner struct {
 	domains      map[string]*libvirt.Domain
 	baseImages   map[string]*libvirt.StorageVol
 	sshConfigOut io.Writer
+	configFS     fs.FS
 
 	// fields below are immutable after initialization
 	uri            string // libvirt connection URI
@@ -122,6 +124,14 @@ func WithAuthorizedKeys(keys ...string) RunnerOption {
 func WriteSSHConfig(w io.Writer) RunnerOption {
 	return func(r *Runner) {
 		r.sshConfigOut = w
+	}
+}
+
+// WithConfigFS specifies a filesystem implementation for loading config
+// snippets requested with the node attribute config.
+func WithConfigFS(fsys fs.FS) RunnerOption {
+	return func(r *Runner) {
+		r.configFS = fsys
 	}
 }
 
@@ -284,12 +294,24 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 			// access.
 			pool = ""
 		}
+
+		var config []byte
+		if file := topoDev.Attr("config"); file != "" && r.configFS != nil {
+			p, err := fs.ReadFile(r.configFS, file)
+			if err != nil {
+				return fmt.Errorf("device %s: %w",
+					topoDev.Name, err)
+			}
+			config = p
+		}
+
 		r.devices[topoDev.Name] = &device{
 			name:      r.namePrefix + topoDev.Name,
 			tunnelIP:  tunnelIP,
 			image:     filepath.Join(r.imageDir, r.namePrefix+topoDev.Name),
 			baseImage: base,
 			pool:      pool,
+			config:    config,
 			topoDev:   topoDev,
 		}
 	}
@@ -793,6 +815,7 @@ type device struct {
 	pool       string
 	image      string
 	baseImage  string
+	config     []byte
 	topoDev    topology.Device
 }
 

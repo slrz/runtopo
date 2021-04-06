@@ -311,3 +311,24 @@ func waitForLease(ctx context.Context, d *libvirt.Domain) (ip netaddr.IP, err er
 	}
 	return netaddr.ParseIP(intf.Addrs[0].Addr)
 }
+
+func writeTempFile(dir, prefix string, p []byte) (file string, err error) {
+	fd, err := ioutil.TempFile(dir, prefix)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if cerr := fd.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			err = fmt.Errorf("writeTempFile: %w", err)
+		}
+	}()
+
+	if _, err := fd.Write(p); err != nil {
+		return "", err
+	}
+
+	return fd.Name(), nil
+}

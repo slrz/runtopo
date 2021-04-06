@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -40,7 +41,24 @@ func customizeDomain(ctx context.Context, uri string, d *device, extraCommands i
 		"--write", "/etc/udev/rules.d/70-persistent-net.rules:"+string(rules),
 		"--commands-from-file", "/dev/stdin",
 	)
-	cmd.Stdin = io.MultiReader(extraCommands, bytes.NewReader(commandsForFunction(d)))
+	commands := []io.Reader{extraCommands}
+	if len(d.config) > 0 {
+		file, err := writeTempFile("", d.name+"-config", d.config)
+		if err != nil {
+			return err
+		}
+		defer os.Remove(file)
+		commands = append(commands, strings.NewReader("run "+file+"\n"))
+	}
+
+	cmd.Stdin = io.MultiReader(append(commands,
+		// As the commands returned from commandsForFunction may
+		// contain selinux-relabel, they need to come last, after any
+		// other operation touching the guest file system. The commands
+		// are basically required for proper functioning anyway, so
+		// there's not much of an use case for overriding them.
+		bytes.NewReader(commandsForFunction(d)))...,
+	)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {

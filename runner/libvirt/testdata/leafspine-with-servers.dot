@@ -1,0 +1,20 @@
+graph G {
+	"oob-mgmt-server" [function="oob-server" mgmt_ip="10.100.68.254/24"]
+	"leaf0" [function=leaf]
+	"leaf0":swp1 -- "spine0":swp1
+	"leaf0":swp2 -- "spine1":swp1
+	"leaf1" [function=leaf]
+	"leaf1":swp1 -- "spine0":swp2
+	"leaf1":swp2 -- "spine1":swp2
+	"leaf2" [function=leaf]
+	"leaf2":swp1 -- "spine0":swp3
+	"leaf2":swp2 -- "spine1":swp3
+	"spine0" [function=spine]
+	"spine1" [function=spine]
+	"leaf0":swp3 -- "host0":ens1
+	"leaf1":swp3 -- "host1":ens1
+	"leaf2":swp3 -- "host2":ens1
+	"host0" [function=host config="host.sh"]
+	"host1" [function=host config="host.sh"]
+	"host2" [function=host config="host.sh"]
+}

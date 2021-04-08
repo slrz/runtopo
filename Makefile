@@ -9,14 +9,24 @@ AOUT        ?= runtopo
 build:
 	$(GO) build -o $(AOUT)
 
-# Execute tests
+# Execute tests (with -short, required on GH Actions)
 .PHONY: test
 test:
-	$(GO) test ./...
+	$(GO) test -short ./...
 
 # Execute tests with race detector instrumentation
 .PHONY: race
 race:
+	$(GO) test -short -race ./...
+
+# Execute all tests
+.PHONY: testall
+testall:
+	$(GO) test ./...
+
+# Execute all tests with race detector instrumentation
+.PHONY: raceall
+raceall:
 	$(GO) test -race ./...
 
 # Execute tests, writing coverage profile to coverage/cover.out

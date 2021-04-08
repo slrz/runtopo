@@ -119,3 +119,14 @@ func deviceFunctionFromString(s string) DeviceFunction {
 		return NoFunction
 	}
 }
+
+// HasFunction returns whether d.Function() is in fs.
+func HasFunction(d *Device, fs ...DeviceFunction) bool {
+	want := d.Function()
+	for _, f := range fs {
+		if f == want {
+			return true
+		}
+	}
+	return false
+}

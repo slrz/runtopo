@@ -89,7 +89,7 @@ func commandsForFunction(d *device) []byte {
 		// hostnames for CL. Work around by directly writing to
 		// /etc/hostname.
 		fmt.Fprintf(&buf, "write /etc/hostname:%s\\\n\n", d.topoDev.Name)
-		if f == topology.FunctionOOBSwitch {
+		if f == topology.OOBSwitch {
 			writeExtraMgmtSwitchCommands(&buf, d)
 		}
 		return buf.Bytes()
@@ -109,7 +109,7 @@ func commandsForFunction(d *device) []byte {
 	buf.WriteString("install lldpd\n")
 	buf.WriteString("run-command systemctl enable lldpd.service\n")
 
-	if d.topoDev.Function() == topology.FunctionOOBServer {
+	if d.topoDev.Function() == topology.OOBServer {
 		writeExtraMgmtServerCommands(&buf, d)
 	}
 	// Only required for SELinux-enabled systems (mostly Fedora/EL)

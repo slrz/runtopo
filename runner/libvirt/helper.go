@@ -265,9 +265,9 @@ func isASCIIDigit(c rune) bool {
 // Returns whether the device function f defaults to Cumulus Linux.
 func isCumulusFunction(f topology.DeviceFunction) bool {
 	switch f {
-	case topology.FunctionOOBSwitch, topology.FunctionExit,
-		topology.FunctionSuperSpine, topology.FunctionSpine,
-		topology.FunctionLeaf, topology.FunctionTOR:
+	case topology.OOBSwitch, topology.Exit,
+		topology.SuperSpine, topology.Spine,
+		topology.Leaf, topology.TOR:
 		return true
 	}
 	return false

@@ -142,7 +142,7 @@ func (t *T) setupAutoMgmtNetwork() error {
 		mgmtServer = &Device{
 			Name: "oob-mgmt-server",
 			attrs: map[string]string{
-				"function": FunctionOOBServer.String(),
+				"function": OOBServer.String(),
 				"mgmt_ip":  "192.168.200.254/24",
 			},
 		}
@@ -159,7 +159,7 @@ func (t *T) setupAutoMgmtNetwork() error {
 		mgmtSwitch = &Device{
 			Name: "oob-mgmt-switch",
 			attrs: map[string]string{
-				"function": FunctionOOBSwitch.String(),
+				"function": OOBSwitch.String(),
 			},
 		}
 		t.devs["oob-mgmt-switch"] = mgmtSwitch
@@ -184,8 +184,8 @@ func (t *T) setupAutoMgmtNetwork() error {
 	a.reserve(mgmtPrefix.IP) // remove mgmtServer's own address
 	// reserve addresses configured with explicit node attrs
 	for _, d := range t.devs {
-		if f := d.Function(); f == FunctionOOBSwitch ||
-			f == FunctionOOBServer || f == FunctionFake {
+		if f := d.Function(); f == OOBSwitch ||
+			f == OOBServer || f == Fake {
 			continue
 		}
 		ipStr := d.Attr("mgmt_ip")
@@ -210,8 +210,8 @@ func (t *T) setupAutoMgmtNetwork() error {
 		if d.Attr("no_mgmt") != "" {
 			continue
 		}
-		if f := d.Function(); f == FunctionOOBSwitch ||
-			f == FunctionOOBServer || f == FunctionFake {
+		if f := d.Function(); f == OOBSwitch ||
+			f == OOBServer || f == Fake {
 			continue
 		}
 		l := Link{

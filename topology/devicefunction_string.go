@@ -8,15 +8,15 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[FunctionFake-0]
-	_ = x[FunctionOOBServer-1]
-	_ = x[FunctionOOBSwitch-2]
-	_ = x[FunctionExit-3]
-	_ = x[FunctionSuperSpine-4]
-	_ = x[FunctionSpine-5]
-	_ = x[FunctionLeaf-6]
-	_ = x[FunctionTOR-7]
-	_ = x[FunctionHost-8]
+	_ = x[Fake-0]
+	_ = x[OOBServer-1]
+	_ = x[OOBSwitch-2]
+	_ = x[Exit-3]
+	_ = x[SuperSpine-4]
+	_ = x[Spine-5]
+	_ = x[Leaf-6]
+	_ = x[TOR-7]
+	_ = x[Host-8]
 	_ = x[NoFunction-9]
 }
 

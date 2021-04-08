@@ -83,38 +83,38 @@ type DeviceFunction int
 
 //go:generate stringer -type=DeviceFunction -linecomment
 const (
-	FunctionFake       DeviceFunction = iota // fake
-	FunctionOOBServer                        // oob-server
-	FunctionOOBSwitch                        // oob-switch
-	FunctionExit                             // exit
-	FunctionSuperSpine                       // superspine
-	FunctionSpine                            // spine
-	FunctionLeaf                             // leaf
-	FunctionTOR                              // tor
-	FunctionHost                             // host
+	Fake       DeviceFunction = iota // fake
+	OOBServer                        // oob-server
+	OOBSwitch                        // oob-switch
+	Exit                             // exit
+	SuperSpine                       // superspine
+	Spine                            // spine
+	Leaf                             // leaf
+	TOR                              // tor
+	Host                             // host
 	NoFunction
 )
 
 func deviceFunctionFromString(s string) DeviceFunction {
 	switch s {
 	case "fake":
-		return FunctionFake
+		return Fake
 	case "oob-server":
-		return FunctionOOBServer
+		return OOBServer
 	case "oob-switch":
-		return FunctionOOBSwitch
+		return OOBSwitch
 	case "exit":
-		return FunctionExit
+		return Exit
 	case "superspine":
-		return FunctionSuperSpine
+		return SuperSpine
 	case "spine":
-		return FunctionSpine
+		return Spine
 	case "leaf":
-		return FunctionLeaf
+		return Leaf
 	case "tor":
-		return FunctionTOR
+		return TOR
 	case "host":
-		return FunctionHost
+		return Host
 	default:
 		return NoFunction
 	}

@@ -12,13 +12,13 @@ const (
 )
 
 var builtinDefaults = [...]deviceDefaults{
-	FunctionOOBServer:  {OS: fedoraQCOW2, VCPUs: 1, Memory: 768 << 20},
-	FunctionOOBSwitch:  {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
-	FunctionExit:       {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
-	FunctionSuperSpine: {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
-	FunctionSpine:      {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
-	FunctionLeaf:       {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
-	FunctionTOR:        {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
-	FunctionHost:       {OS: fedoraQCOW2, VCPUs: 1, Memory: 768 << 20},
-	NoFunction:         {OS: fedoraQCOW2, VCPUs: 1, Memory: 768 << 20},
+	OOBServer:  {OS: fedoraQCOW2, VCPUs: 1, Memory: 768 << 20},
+	OOBSwitch:  {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
+	Exit:       {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
+	SuperSpine: {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
+	Spine:      {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
+	Leaf:       {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
+	TOR:        {OS: cumulusQCOW2, VCPUs: 1, Memory: 768 << 20},
+	Host:       {OS: fedoraQCOW2, VCPUs: 1, Memory: 768 << 20},
+	NoFunction: {OS: fedoraQCOW2, VCPUs: 1, Memory: 768 << 20},
 }

@@ -17,9 +17,9 @@ func TestParse(t *testing.T) {
 		t.Errorf("got %d links, want 6", len(xs))
 	}
 	for _, x := range topo.Devices() {
-		wantFunction := FunctionLeaf
+		wantFunction := Leaf
 		if x.Name == "spine0" || x.Name == "spine1" {
-			wantFunction = FunctionSpine
+			wantFunction = Spine
 		}
 		if f := x.Function(); f != wantFunction {
 			t.Errorf("device %s: got function %s, want %s",

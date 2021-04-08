@@ -87,7 +87,7 @@ func TestRuntopo(t *testing.T) {
 	defer oob.Close()
 
 	for hostname, d := range r.devices {
-		if d.topoDev.Function() != topology.FunctionHost {
+		if d.topoDev.Function() != topology.Host {
 			continue
 		}
 		var fileData []byte

@@ -271,7 +271,7 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 	}
 
 	for _, topoDev := range t.Devices() {
-		if topoDev.Function() == topology.FunctionFake {
+		if topoDev.Function() == topology.Fake {
 			continue
 		}
 
@@ -695,7 +695,7 @@ func (r *Runner) customizeDomains(ctx context.Context, t *topology.T) (err error
 		for _, k := range r.authorizedKeys {
 			fmt.Fprintf(&buf, "ssh-inject %s:string:%s\n", user, k)
 		}
-		if d.topoDev.Function() == topology.FunctionOOBServer {
+		if d.topoDev.Function() == topology.OOBServer {
 			hosts := gatherHosts(ctx, r, t)
 			for _, h := range hosts {
 				fmt.Fprintf(&buf, "append-line /etc/hosts:%s %s\n",
@@ -747,7 +747,7 @@ func (r *Runner) startDomains(ctx context.Context, t *topology.T) (err error) {
 		}
 	}()
 	for _, d := range ds {
-		if d.Function() == topology.FunctionFake {
+		if d.Function() == topology.Fake {
 			continue
 		}
 		dom := r.domains[r.namePrefix+d.Name]
@@ -786,8 +786,8 @@ func (r *Runner) writeSSHConfig(ctx context.Context, t *topology.T) (err error) 
 `, ip)
 
 	for _, d := range t.Devices() {
-		if d.Function() == topology.FunctionOOBServer ||
-			d.Function() == topology.FunctionOOBSwitch {
+		if d.Function() == topology.OOBServer ||
+			d.Function() == topology.OOBSwitch {
 			continue
 		}
 		user := "root"

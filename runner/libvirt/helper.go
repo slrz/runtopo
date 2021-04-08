@@ -262,15 +262,16 @@ func isASCIIDigit(c rune) bool {
 	return '0' <= c && c <= '9'
 }
 
-// Returns whether the device function f defaults to Cumulus Linux.
-func isCumulusFunction(f topology.DeviceFunction) bool {
-	switch f {
-	case topology.OOBSwitch, topology.Exit,
-		topology.SuperSpine, topology.Spine,
-		topology.Leaf, topology.TOR:
-		return true
-	}
-	return false
+// Returns whether d defaults to Cumulus Linux.
+func hasCumulusFunction(d *device) bool {
+	return topology.HasFunction(&d.topoDev,
+		topology.OOBSwitch,
+		topology.Exit,
+		topology.SuperSpine,
+		topology.Spine,
+		topology.Leaf,
+		topology.TOR,
+	)
 }
 
 // Waits until d received a DHCP lease from a libvirt network and return its

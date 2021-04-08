@@ -686,7 +686,7 @@ func (r *Runner) customizeDomains(ctx context.Context, t *topology.T) (err error
 	defer cancel()
 	for _, d := range r.devices {
 		user := "root"
-		if isCumulusFunction(d.topoDev.Function()) {
+		if hasCumulusFunction(d) {
 			user = "cumulus"
 			fmt.Fprintf(&buf, "write /etc/ptm.d/topology.dot:%s\n",
 				bytes.Replace(t.DOT(), []byte("\n"),
@@ -786,12 +786,11 @@ func (r *Runner) writeSSHConfig(ctx context.Context, t *topology.T) (err error) 
 `, ip)
 
 	for _, d := range t.Devices() {
-		if d.Function() == topology.OOBServer ||
-			d.Function() == topology.OOBSwitch {
+		if topology.HasFunction(&d, topology.OOBServer, topology.OOBSwitch) {
 			continue
 		}
 		user := "root"
-		if isCumulusFunction(d.Function()) {
+		if hasCumulusFunction(&device{topoDev: d}) {
 			user = "cumulus"
 		}
 		fmt.Fprintf(w, `Host %s

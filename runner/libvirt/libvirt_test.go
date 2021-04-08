@@ -66,9 +66,8 @@ func TestDnsmasqHostsFile(t *testing.T) {
 		if d.Attr("no_mgmt") != "" {
 			continue
 		}
-		if f := d.Function(); f == topology.OOBServer ||
-			f == topology.OOBSwitch ||
-			f == topology.Fake {
+		if topology.HasFunction(&d, topology.OOBServer,
+			topology.OOBSwitch, topology.Fake) {
 			continue
 		}
 		ndevices++

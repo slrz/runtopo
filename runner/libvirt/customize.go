@@ -70,7 +70,7 @@ func customizeDomain(ctx context.Context, uri string, d *device, extraCommands i
 
 func commandsForFunction(d *device) []byte {
 	var buf bytes.Buffer
-	if f := d.topoDev.Function(); isCumulusFunction(f) {
+	if hasCumulusFunction(d) {
 		// These eat enough memory to summon the OOM killer in 512MiB
 		// VMs.
 		buf.WriteString("run-command systemctl disable netq-agent.service\n")
@@ -89,7 +89,7 @@ func commandsForFunction(d *device) []byte {
 		// hostnames for CL. Work around by directly writing to
 		// /etc/hostname.
 		fmt.Fprintf(&buf, "write /etc/hostname:%s\\\n\n", d.topoDev.Name)
-		if f == topology.OOBSwitch {
+		if d.topoDev.Function() == topology.OOBSwitch {
 			writeExtraMgmtSwitchCommands(&buf, d)
 		}
 		return buf.Bytes()

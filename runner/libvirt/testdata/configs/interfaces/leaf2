@@ -1,0 +1,39 @@
+auto lo
+iface lo inet loopback
+    address 10.42.42.120/32
+    address fd4c:3138:80cc::120/128
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+    address 127.0.0.1/8
+    address ::1/128
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto swp1
+iface swp1
+
+auto swp2
+iface swp2
+
+auto swp3
+iface swp3
+    bridge-access 102
+    mstpctl-bpduguard yes
+    mstpctl-portadminedge yes
+
+auto bridge
+iface bridge
+    bridge-ports swp3
+    bridge-vids 102
+    bridge-vlan-aware yes
+
+auto vlan102
+iface vlan102
+    address 10.42.102.1/24
+    address fd4c:3138:80cc:66::1/64
+    vlan-id 102
+    vlan-raw-device bridge

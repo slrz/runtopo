@@ -1,0 +1,23 @@
+auto lo
+iface lo inet loopback
+    address 10.42.42.201/32
+    address fd4c:3138:80cc::201/128
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+    address 127.0.0.1/8
+    address ::1/128
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+
+auto swp1
+iface swp1
+
+auto swp2
+iface swp2
+
+auto swp3
+iface swp3

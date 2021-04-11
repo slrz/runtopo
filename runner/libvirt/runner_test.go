@@ -3,21 +3,26 @@ package libvirt
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
-	"strings"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/pkg/sftp"
-	"go4.org/writerutil"
 	"golang.org/x/crypto/ssh"
 	"slrz.net/runtopo/topology"
 )
+
+type ptmDetail struct {
+	Port             string `json:"port"`
+	Status           string `json:"cbl status"`
+	ActualNeighbor   string `json:"act nbr"`
+	ExpectedNeighbor string `json:"exp nbr"`
+}
 
 func TestRuntopo(t *testing.T) {
 	if testing.Short() {
@@ -86,36 +91,147 @@ func TestRuntopo(t *testing.T) {
 	}
 	defer oob.Close()
 
-	for hostname, d := range r.devices {
-		if d.topoDev.Function() != topology.Host {
+	// Upload configuration for network devices (frr.conf and interfaces)
+	for hostname := range r.devices {
+		var files [2][]byte
+		sources := []string{
+			filepath.Join("testdata/configs/interfaces", hostname),
+			filepath.Join("testdata/configs/frr", hostname),
+		}
+
+		for i, src := range sources {
+			p, err := os.ReadFile(src)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				t.Fatal(err)
+			}
+			files[i] = p
+		}
+
+		if files[0] == nil && files[1] == nil {
 			continue
 		}
-		var fileData []byte
-		err := withBackoff(nretries, func() error {
+
+		interfaces, frrConf := files[0], files[1]
+		err = withBackoff(nretries, func() error {
 			c, err := proxyJump(oob, hostname, sshConfig)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			p, err := sftpGet(c, "/kilroywashere")
-			if err != nil {
-				return err
+			if len(interfaces) > 0 {
+				err := sftpPut(c, "/etc/network/interfaces",
+					interfaces)
+				if err != nil {
+					return err
+				}
 			}
-
-			fileData = p
+			if len(frrConf) > 0 {
+				return sftpPut(c, "/etc/frr/frr.conf", frrConf)
+			}
 			return nil
 		})
 		if err != nil {
-			t.Errorf("%s: %v (giving up after %d retries)",
-				hostname, err, nretries)
-			continue
+			t.Fatal(err)
 		}
-		if !bytes.Equal(fileData, []byte("abcdef\n")) {
-			t.Errorf("%s: unexpected file content: got %q, want %q",
-				hostname, fileData, "abcdef\n")
+
+		err = withBackoff(nretries, func() error {
+			c, err := proxyJump(oob, hostname, sshConfig)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			commands := [][]string{
+				{"sed", "-i", "s/^bgpd=no/bgpd=yes/", "/etc/frr/daemons"},
+				{"ifreload", "-a"},
+				{"systemctl", "restart", "frr.service"},
+			}
+			for _, argv := range commands {
+				_, err := runCommand(c, argv[0], argv[1:]...)
+				if err != nil {
+					return err
+				}
+			}
+			t.Logf("=== %s ===", hostname)
+			p, err := runCommand(c, "net", "show", "int")
+			t.Logf("%s\n===", p)
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
+
+	t.Run("config-nodeattr", func(t *testing.T) {
+		for hostname, d := range r.devices {
+			if !hasFunction(d, topology.Host) {
+				continue
+			}
+			var fileData []byte
+			err := withBackoff(nretries, func() error {
+				c, err := proxyJump(oob, hostname, sshConfig)
+				if err != nil {
+					return err
+				}
+				defer c.Close()
+
+				p, err := sftpGet(c, "/kilroywashere")
+				if err != nil {
+					return err
+				}
+
+				fileData = p
+				return nil
+			})
+			if err != nil {
+				t.Errorf("%s: %v (giving up after %d retries)",
+					hostname, err, nretries)
+				continue
+			}
+			if !bytes.Equal(fileData, []byte("abcdef\n")) {
+				t.Errorf("%s: unexpected file content: got %q, want %q",
+					hostname, fileData, "abcdef\n")
+			}
+		}
+	})
+	t.Run("ptm-topology", func(t *testing.T) {
+		for hostname, d := range r.devices {
+			if !hasFunction(d, topology.Spine, topology.Leaf) {
+				continue
+			}
+			err := withBackoff(nretries, func() error {
+				c, err := proxyJump(oob, hostname, sshConfig)
+				if err != nil {
+					return err
+				}
+				defer c.Close()
+
+				p, err := runCommand(c, "ptmctl", "--json", "--detail")
+				if err != nil {
+					return err
+				}
+				// Ptmctl gives us a JSON object with numeric
+				// string indices: {"0": {}, "1": {}, ...}.
+				ptm := make(map[string]*ptmDetail)
+				if err := json.Unmarshal(p, &ptm); err != nil {
+					return err
+				}
+				for _, v := range ptm {
+					if v.Status != "pass" {
+						return fmt.Errorf("%s: got %s, want %s",
+							v.Port, v.ActualNeighbor, v.ExpectedNeighbor)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("%s: %v", hostname, err)
+			}
+		}
+	})
 }
 
 func withBackoff(attempts int, f func() error) (err error) {
@@ -146,131 +262,4 @@ func minInt64(a, b int64) int64 {
 		return b
 	}
 	return a
-}
-
-func proxyJump(c *ssh.Client, addr string, config *ssh.ClientConfig) (cc *ssh.Client, err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("proxyJump %s: %w", addr, err)
-		}
-	}()
-
-	conn, err := c.Dial("tcp", net.JoinHostPort(addr, "22"))
-	if err != nil {
-		return nil, err
-	}
-	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-
-	return ssh.NewClient(sshConn, chans, reqs), nil
-}
-
-func runCommand(c *ssh.Client, name string, args ...string) ([]byte, error) {
-	var b strings.Builder
-
-	b.WriteString(shellQuote(name))
-	for _, a := range args {
-		b.WriteByte(' ')
-		b.WriteString(shellQuote(a))
-	}
-	cmd := b.String()
-
-	sess, err := c.NewSession()
-	if err != nil {
-		return nil, err
-	}
-	defer sess.Close()
-
-	var stdout bytes.Buffer
-	stderr := &writerutil.PrefixSuffixSaver{N: 1024}
-	sess.Stdout = &stdout
-	sess.Stderr = stderr
-
-	if err := sess.Run(cmd); err != nil {
-		if msg := stderr.Bytes(); len(msg) > 0 {
-			return nil, fmt.Errorf("runCommand: %w | %s |", err, msg)
-		}
-		return nil, fmt.Errorf("runCommand: %w", err)
-	}
-
-	return stdout.Bytes(), nil
-}
-
-func sftpGet(conn *ssh.Client, path string) (content []byte, err error) {
-	c, err := sftp.NewClient(conn)
-	if err != nil {
-		return nil, err
-	}
-	defer c.Close()
-
-	fd, err := c.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer fd.Close()
-
-	return io.ReadAll(fd)
-}
-
-func sftpPutReader(conn *ssh.Client, dstPath string, src io.Reader) (err error) {
-	c, err := sftp.NewClient(conn)
-	if err != nil {
-		return err
-	}
-	defer c.Close()
-
-	fd, err := c.Create(dstPath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cerr := fd.Close(); err == nil {
-			err = cerr
-		}
-	}()
-
-	_, err = io.Copy(fd, src)
-	return err
-}
-
-func sftpPut(conn *ssh.Client, dstPath string, content []byte) (err error) {
-	return sftpPutReader(conn, dstPath, bytes.NewReader(content))
-}
-
-func sshKeygen(rand io.Reader) (ssh.Signer, []byte, error) {
-	_, sk, err := ed25519.GenerateKey(rand)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	signer, err := ssh.NewSignerFromSigner(sk)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	sshPubKey := ssh.MarshalAuthorizedKey(signer.PublicKey())
-
-	return signer, sshPubKey, nil
-}
-
-func mustReadFile(path string) []byte {
-	p, err := os.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-	return p
-}
-
-// ShellQuote returns s in a form suitable to pass it to the shell as an
-// argument. Obviously, it works for Bourne-like shells only.  The way this
-// works is that first the whole string is enclosed in single quotes. Now the
-// only character that needs special handling is the single quote itself.  We
-// replace it by '\'' (the outer quotes are part of the replacement) and make
-// use of the fact that the shell concatenates adjacent strings.
-func shellQuote(s string) string {
-	t := strings.Replace(s, "'", `'\''`, -1)
-	return "'" + t + "'"
 }

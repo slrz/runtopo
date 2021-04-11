@@ -1,0 +1,33 @@
+frr defaults datacenter
+hostname spine0
+username cumulus nopassword
+!
+service integrated-vtysh-config
+!
+log syslog informational
+!
+line vty
+!
+
+router bgp 65110
+ bgp router-id 10.42.42.110
+ bgp bestpath as-path multipath-relax
+ neighbor fabric peer-group
+ neighbor fabric remote-as external
+ neighbor fabric bfd
+ neighbor swp1 interface peer-group fabric
+ neighbor swp2 interface peer-group fabric
+ !
+ address-family ipv4 unicast
+  redistribute connected
+ exit-address-family
+ !
+ address-family ipv6 unicast
+  redistribute connected
+  neighbor fabric activate
+ exit-address-family
+!
+
+interface vlan101
+ no ipv6 nd suppress-ra
+!

@@ -108,6 +108,9 @@ func commandsForFunction(d *device) []byte {
 	}
 	buf.WriteString("install lldpd\n")
 	buf.WriteString("run-command systemctl enable lldpd.service\n")
+	// Make lldpd emit the interface name instead of the MAC address. It's
+	// what we have in the topology file.
+	buf.WriteString("write /etc/lldpd.d/ifname.conf:configure lldp portidsubtype ifname\\\n\n")
 
 	if d.topoDev.Function() == topology.OOBServer {
 		writeExtraMgmtServerCommands(&buf, d)

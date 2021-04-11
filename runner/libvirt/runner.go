@@ -694,6 +694,9 @@ func (r *Runner) customizeDomains(ctx context.Context, t *topology.T) (err error
 		}
 		for _, k := range r.authorizedKeys {
 			fmt.Fprintf(&buf, "ssh-inject %s:string:%s\n", user, k)
+			if user != "root" {
+				fmt.Fprintf(&buf, "ssh-inject root:string:%s\n", k)
+			}
 		}
 		if d.topoDev.Function() == topology.OOBServer {
 			hosts := gatherHosts(ctx, r, t)

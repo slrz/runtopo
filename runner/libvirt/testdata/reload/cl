@@ -1,0 +1,4 @@
+#!/bin/sh
+sed -i 's/^bgpd=no/bgpd=yes/' /etc/frr/daemons || exit $?
+ifreload -a || exit $?
+systemctl restart frr.service || exit $?

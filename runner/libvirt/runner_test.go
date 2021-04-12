@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,73 +92,51 @@ func TestRuntopo(t *testing.T) {
 	}
 	defer oob.Close()
 
-	// Upload configuration for network devices (frr.conf and interfaces)
+	// Upload device configuration
 	for hostname := range r.devices {
-		var files [2][]byte
-		sources := []string{
-			filepath.Join("testdata/configs/interfaces", hostname),
-			filepath.Join("testdata/configs/frr", hostname),
-		}
-
-		for i, src := range sources {
-			p, err := os.ReadFile(src)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					continue
-				}
-				t.Fatal(err)
-			}
-			files[i] = p
-		}
-
-		if files[0] == nil && files[1] == nil {
-			continue
-		}
-
-		interfaces, frrConf := files[0], files[1]
-		err = withBackoff(nretries, func() error {
-			c, err := proxyJump(oob, hostname, sshConfig)
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			if len(interfaces) > 0 {
-				err := sftpPut(c, "/etc/network/interfaces",
-					interfaces)
-				if err != nil {
-					return err
-				}
-			}
-			if len(frrConf) > 0 {
-				return sftpPut(c, "/etc/frr/frr.conf", frrConf)
-			}
-			return nil
-		})
+		configDir := filepath.Join("testdata/configs", hostname)
+		files, err := os.ReadDir(configDir)
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
 			t.Fatal(err)
 		}
-
+		if len(files) == 0 {
+			continue
+		}
+		reload, err := os.ReadFile(filepath.Join("testdata/reload", hostname))
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				t.Fatal(err)
+			}
+			reload = nil
+		}
 		err = withBackoff(nretries, func() error {
 			c, err := proxyJump(oob, hostname, sshConfig)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			commands := [][]string{
-				{"sed", "-i", "s/^bgpd=no/bgpd=yes/", "/etc/frr/daemons"},
-				{"ifreload", "-a"},
-				{"systemctl", "restart", "frr.service"},
-			}
-			for _, argv := range commands {
-				_, err := runCommand(c, argv[0], argv[1:]...)
+
+			for _, f := range files {
+				// Slashes are represented as "--" in the
+				// testdata file names, so reconstruct the
+				// original path.
+				dst := "/" + strings.Replace(f.Name(), "--", "/", -1)
+				src := filepath.Join(configDir, f.Name())
+				err := sftpPut(c, dst, mustReadFile(src))
 				if err != nil {
 					return err
 				}
 			}
-			t.Logf("=== %s ===", hostname)
-			p, err := runCommand(c, "net", "show", "int")
-			t.Logf("%s\n===", p)
+			if reload == nil {
+				return nil
+			}
+			if err := sftpPut(c, "/tmp/runtopo-reload", reload); err != nil {
+				return err
+			}
+			_, err = runCommand(c, "/bin/sh", "/tmp/runtopo-reload")
 			return err
 		})
 		if err != nil {
@@ -262,4 +241,12 @@ func minInt64(a, b int64) int64 {
 		return b
 	}
 	return a
+}
+
+func mustReadFile(path string) []byte {
+	p, err := os.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+	return p
 }

@@ -3,6 +3,7 @@ package libvirt
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"text/template"
@@ -13,33 +14,40 @@ import (
 )
 
 func TestValidDomainXML(t *testing.T) {
-	topo, err := topology.ParseFile("testdata/leafspine.dot", topology.WithAutoMgmtNetwork)
+	topoFiles, err := filepath.Glob("testdata/*.dot")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	r := NewRunner()
-	if err := r.buildInventory(topo); err != nil {
-		t.Fatal(err)
-	}
-
-	tmpl, err := template.New("").
-		Funcs(templateFuncs).
-		Parse(domainTemplateText)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var buf bytes.Buffer
-	for _, d := range r.devices {
-		if err := tmpl.Execute(&buf, d.templateArgs()); err != nil {
-			t.Errorf("domain %s: %v", d.name, err)
+	for _, file := range topoFiles {
+		topo, err := topology.ParseFile(file, topology.WithAutoMgmtNetwork)
+		if err != nil {
+			t.Fatal(err)
 		}
-		domXML := buf.Bytes()
-		if err := validateDomainXML(domXML); err != nil {
-			t.Errorf("domain %s: %v", d.name, err)
+
+		r := NewRunner()
+		if err := r.buildInventory(topo); err != nil {
+			t.Fatal(err)
 		}
-		buf.Reset()
+
+		tmpl, err := template.New("").
+			Funcs(templateFuncs).
+			Parse(domainTemplateText)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var buf bytes.Buffer
+		for _, d := range r.devices {
+			if err := tmpl.Execute(&buf, d.templateArgs()); err != nil {
+				t.Errorf("domain %s: %v", d.name, err)
+			}
+			domXML := buf.Bytes()
+			if err := validateDomainXML(domXML); err != nil {
+				t.Errorf("domain %s: %v", d.name, err)
+			}
+			buf.Reset()
+		}
 	}
 }
 

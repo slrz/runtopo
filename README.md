@@ -55,6 +55,7 @@ supplied, a (possibly configurable) default is used.
 
 ### Edge Attributes
 * left\_mac/right\_mac -- explicitly specify MAC address for interface
+* left\_pxe/right\_pxe -- configure interface for PXE boot
 
 ## Defaults
 

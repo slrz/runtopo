@@ -1,0 +1,7 @@
+graph G {
+	"leaf0" [function=leaf]
+	"leaf0":swp1 -- "host0":ens1
+	"leaf0":swp2 -- "host1":ens1 [right_pxe=1]
+	"host0" [function=host]
+	"host0" [function=host]
+}

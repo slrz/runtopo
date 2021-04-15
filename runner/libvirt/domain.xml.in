@@ -5,7 +5,9 @@
   <vcpu>{{ .VCPUs }}</vcpu>
   <os>
     <type arch="x86_64" machine="q35">hvm</type>
+    {{- if not .PXEBoot }}
     <boot dev="hd"/>
+    {{- end }}
   </os>
   <features>
     <acpi/>
@@ -30,6 +32,9 @@
       <driver name='qemu' type='qcow2'/>
       <source pool='{{ .Pool }}' volume='{{ .Name }}'/>
       <target dev='vda' bus='virtio'/>
+      {{- if .PXEBoot }}
+      <boot order='2'/>
+      {{- end }}
       <alias name='virtio-disk0'/>
     </disk>
     {{- else }}
@@ -42,6 +47,9 @@
         <backingStore/>
       </backingStore>
       <target dev='vda' bus='virtio'/>
+      {{- if .PXEBoot }}
+      <boot order='2'/>
+      {{- end }}
       <alias name='virtio-disk0'/>
     </disk>
     {{- end }}

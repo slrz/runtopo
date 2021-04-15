@@ -344,6 +344,7 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 				port:           nextPort,
 				localPort:      nextPort + uint(r.portGap),
 				remoteTunnelIP: toTunnelIP,
+				pxe:            l.Attr("left_pxe") != "",
 			})
 		}
 		if to := r.devices[l.To]; to != nil {
@@ -357,6 +358,7 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 				port:           nextPort + uint(r.portGap),
 				localPort:      nextPort,
 				remoteTunnelIP: fromTunnelIP,
+				pxe:            l.Attr("right_pxe") != "",
 			})
 
 		}
@@ -829,6 +831,7 @@ func (d *device) templateArgs() *domainTemplateArgs {
 		Pool:      d.pool,
 		Image:     d.image,
 		BaseImage: d.baseImage,
+		PXEBoot:   false, // set below if enabled for an interface
 	}
 	for _, intf := range d.interfaces {
 		typ := "udp"
@@ -846,9 +849,13 @@ func (d *device) templateArgs() *domainTemplateArgs {
 			MACAddr:       intf.mac.String(),
 			TargetDev:     intf.name,
 			Model:         "virtio",
+			PXE:           intf.pxe,
 			NetworkSource: netSrc,
 			UDPSource:     udpSrc,
 		})
+		if intf.pxe {
+			args.PXEBoot = true
+		}
 	}
 
 	return args
@@ -862,4 +869,5 @@ type iface struct {
 	port           uint
 	localPort      uint
 	remoteTunnelIP net.IP
+	pxe            bool
 }

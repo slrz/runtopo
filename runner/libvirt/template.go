@@ -19,6 +19,7 @@ type domainTemplateArgs struct {
 	Pool      string
 	Image     string
 	BaseImage string
+	PXEBoot   bool
 
 	Interfaces []domainInterface
 }
@@ -28,6 +29,7 @@ type domainInterface struct {
 	MACAddr   string
 	TargetDev string
 	Model     string
+	PXE       bool
 
 	NetworkSource string
 	UDPSource     udpSource
@@ -65,6 +67,9 @@ var templateFuncs = template.FuncMap{
 			Model: &libvirtxml.DomainInterfaceModel{
 				Type: in.Model,
 			},
+		}
+		if in.PXE {
+			intf.Boot = &libvirtxml.DomainDeviceBoot{Order: 1}
 		}
 		theXML, err := intf.Marshal()
 		if err != nil {

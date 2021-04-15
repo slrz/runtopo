@@ -8,6 +8,8 @@ import (
 	"text/template"
 
 	"slrz.net/runtopo/topology"
+
+	libvirtxml "libvirt.org/libvirt-go-xml"
 )
 
 func TestValidDomainXML(t *testing.T) {
@@ -82,5 +84,50 @@ func TestDnsmasqHostsFile(t *testing.T) {
 		if len(xs) != 3 {
 			t.Errorf("line %d invalid: %q\n", i+1, l)
 		}
+	}
+}
+
+func TestDomainPXEBoot(t *testing.T) {
+	topo, err := topology.ParseFile("testdata/pxehost.dot")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := NewRunner()
+	if err := r.buildInventory(topo); err != nil {
+		t.Fatal(err)
+	}
+
+	tmpl, err := template.New("").
+		Funcs(templateFuncs).
+		Parse(domainTemplateText)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	d := r.devices["host1"]
+	if err := tmpl.Execute(&buf, d.templateArgs()); err != nil {
+		t.Errorf("domain %s: %v", d.name, err)
+	}
+	dom := new(libvirtxml.Domain)
+	if err := dom.Unmarshal(buf.String()); err != nil {
+		t.Fatalf("domain %s: %v", d.name, err)
+	}
+	disks := dom.Devices.Disks
+	if len(disks) == 0 {
+		t.Fatalf("domain %s: no disks", d.name)
+	}
+	if d0 := disks[0]; d0.Boot == nil || d0.Boot.Order != 2 {
+		t.Fatalf("domain %s: unexpected boot order: %#v", d.name, d0.Boot)
+	}
+	pxeOK := false
+	for _, intf := range dom.Devices.Interfaces {
+		if intf.Boot != nil && intf.Boot.Order == 1 {
+			pxeOK = true
+		}
+	}
+	if !pxeOK {
+		t.Fatalf("domain %s: no interface configured for booting", d.name)
 	}
 }

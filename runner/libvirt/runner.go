@@ -391,17 +391,21 @@ func (r *Runner) downloadBaseImages(ctx context.Context, t *topology.T) (err err
 	wantImages := make(map[string]struct{})
 	haveImages := make(map[string]*libvirt.StorageVol)
 	for _, d := range r.devices {
-		u, err := url.Parse(d.topoDev.OSImage())
+		osImage := d.topoDev.OSImage()
+		if osImage == "" {
+			continue
+		}
+		u, err := url.Parse(osImage)
 		if err != nil {
 			return err
 		}
 		vol, err := pool.LookupStorageVolByName(path.Base(u.Path))
 		if err == nil {
 			// skip over already present volumes
-			haveImages[d.topoDev.OSImage()] = vol
+			haveImages[osImage] = vol
 			continue
 		}
-		wantImages[d.topoDev.OSImage()] = struct{}{}
+		wantImages[osImage] = struct{}{}
 	}
 
 	type result struct {
@@ -473,27 +477,30 @@ func (r *Runner) createVolumes(ctx context.Context, t *topology.T) (err error) {
 
 	for _, d := range r.devices {
 		var backing *libvirtxml.StorageVolumeBackingStore
-		var baseInfo *libvirt.StorageVolInfo
+		var capacity int64
 
-		if osImage := d.topoDev.OSImage(); osImage != "none" {
+		if osImage := d.topoDev.OSImage(); osImage != "" {
 			base := r.baseImages[osImage]
 			if base == nil {
 				// we should've failed earlier already
 				panic("unexpected missing base image: " +
 					osImage)
 			}
-			baseInfo, err = base.GetInfo()
+			baseInfo, err := base.GetInfo()
 			if err != nil {
 				return fmt.Errorf("get-info: %w (bvol: %s)",
 					err, osImage)
 			}
+			capacity = int64(baseInfo.Capacity)
 			backing, err = newBackingStoreFromVol(base)
 			if err != nil {
 				return err
 			}
+		} else {
+			capacity = d.topoDev.DiskSize()
 		}
 
-		xmlVol := newVolume(d.name, int64(baseInfo.Capacity))
+		xmlVol := newVolume(d.name, capacity)
 		xmlVol.BackingStore = backing
 		xmlStr, err := xmlVol.Marshal()
 		if err != nil {
@@ -607,6 +614,10 @@ func (r *Runner) customizeDomains(ctx context.Context, t *topology.T) (err error
 	customizeCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	for _, d := range r.devices {
+		if d.topoDev.OSImage() == "" {
+			// Cannot customize blank disk image.
+			continue
+		}
 		user := "root"
 		if hasCumulusFunction(d) {
 			user = "cumulus"
@@ -673,6 +684,9 @@ func (r *Runner) startDomains(ctx context.Context, t *topology.T) (err error) {
 	}()
 	for _, d := range ds {
 		if d.Function() == topology.Fake {
+			continue
+		}
+		if d.OSImage() == "" {
 			continue
 		}
 		dom := r.domains[r.namePrefix+d.Name]

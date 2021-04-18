@@ -40,6 +40,9 @@ var (
 	writeSSHConfig = flag.String("writesshconfig",
 		os.Getenv("RUNTOPO_WRITE_SSH_CONFIG"),
 		"write OpenSSH client configuration to `file`")
+	writeBMCConfig = flag.String("writebmcconfig",
+		os.Getenv("RUNTOPO_WRITE_BMC_CONFIG"),
+		"write JSON `file` containing virtual BMC addresses")
 	destroy = flag.Bool("destroy", os.Getenv("RUNTOPO_DESTROY") != "",
 		"destroy resources created by previous invocation")
 )
@@ -99,6 +102,18 @@ func main() {
 			}
 		}()
 		runnerOpts = append(runnerOpts, libvirt.WriteSSHConfig(fd))
+	}
+	if s := *writeBMCConfig; s != "" {
+		fd, err := os.Create(s)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer func() {
+			if err := fd.Close(); err != nil {
+				log.Printf("writebmcconfig: %v", err)
+			}
+		}()
+		runnerOpts = append(runnerOpts, libvirt.WriteBMCConfig(fd))
 	}
 	r := libvirt.NewRunner(runnerOpts...)
 

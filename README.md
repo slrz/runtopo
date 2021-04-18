@@ -19,9 +19,7 @@ realize while accomodating Vagrant's requirements.
 If you want to run a simulated topology on your laptop (possibly running a
 non-Linux OS like Windows or macOS) you should stay with topology\_converter.
 Runtopo currently only supports libvirt using the QEMU driver. There are no
-plans for supporting VirtualBox or similar. In addition, topology\_converter is
-easier to get started with whereas runtopo requires a more extensive initial
-setup process.
+plans for supporting VirtualBox or similar.
 
 
 ## Installation

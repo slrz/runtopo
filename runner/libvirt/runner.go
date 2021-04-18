@@ -4,20 +4,18 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"net"
 	"net/url"
-	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
 
 	"libvirt.org/libvirt-go"
+	libvirtxml "libvirt.org/libvirt-go-xml"
 	"slrz.net/runtopo/topology"
 )
 
@@ -38,7 +36,6 @@ type Runner struct {
 	portBase       int
 	portGap        int
 	storagePool    string
-	imageDir       string
 	authorizedKeys []string
 }
 
@@ -99,15 +96,6 @@ func WithPortGap(delta int) RunnerOption {
 func WithStoragePool(pool string) RunnerOption {
 	return func(r *Runner) {
 		r.storagePool = pool
-	}
-}
-
-// WithImageDirectory sets the target directory where to create volumes. This
-// causes the runner to create volumes using direct file system operations
-// instead of libvirt. Prefer using WithStoragePool.
-func WithImageDirectory(dir string) RunnerOption {
-	return func(r *Runner) {
-		r.imageDir = dir
 	}
 }
 
@@ -187,19 +175,7 @@ func (r *Runner) Run(ctx context.Context, t *topology.T) (err error) {
 		}
 	}()
 
-	var (
-		downloadBaseImages = r.downloadBaseImages
-		createVolumes      = r.createVolumes
-		deleteVolumes      = r.deleteVolumes
-	)
-	// If the caller specified a target directory for images, don't go
-	// through libvirt but write to the file system directly.
-	if r.imageDir != "" {
-		downloadBaseImages = r.downloadBaseImagesDirect
-		createVolumes = r.createVolumesDirect
-		deleteVolumes = r.deleteVolumesDirect
-	}
-	if err := downloadBaseImages(ctx, t); err != nil {
+	if err := r.downloadBaseImages(ctx, t); err != nil {
 		return err
 	}
 	defer func() {
@@ -210,12 +186,12 @@ func (r *Runner) Run(ctx context.Context, t *topology.T) (err error) {
 			r.baseImages = nil
 		}
 	}()
-	if err := createVolumes(ctx, t); err != nil {
+	if err := r.createVolumes(ctx, t); err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
-			deleteVolumes(ctx, t)
+			r.deleteVolumes(ctx, t)
 		}
 	}()
 
@@ -277,11 +253,7 @@ func (r *Runner) Destroy(ctx context.Context, t *topology.T) (err error) {
 	}
 	r.domains = nil
 
-	deleteVolumes := r.deleteVolumes
-	if r.imageDir != "" {
-		deleteVolumes = r.deleteVolumesDirect
-	}
-	if err := deleteVolumes(ctx, t); err != nil {
+	if err := r.deleteVolumes(ctx, t); err != nil {
 		return err
 	}
 	for _, v := range r.baseImages {
@@ -323,17 +295,6 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 					topoDev.Name, s)
 			}
 		}
-		u, err := url.Parse(topoDev.OSImage())
-		if err != nil {
-			return err
-		}
-		base := filepath.Join(r.imageDir, path.Base(u.Path))
-		pool := r.storagePool
-		if r.imageDir != "" {
-			// Don't set pool on device when using direct FS
-			// access.
-			pool = ""
-		}
 
 		var config []byte
 		if file := topoDev.Attr("config"); file != "" && r.configFS != nil {
@@ -346,13 +307,11 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 		}
 
 		r.devices[topoDev.Name] = &device{
-			name:      r.namePrefix + topoDev.Name,
-			tunnelIP:  tunnelIP,
-			image:     filepath.Join(r.imageDir, r.namePrefix+topoDev.Name),
-			baseImage: base,
-			pool:      pool,
-			config:    config,
-			topoDev:   topoDev,
+			name:     r.namePrefix + topoDev.Name,
+			tunnelIP: tunnelIP,
+			pool:     r.storagePool,
+			config:   config,
+			topoDev:  topoDev,
 		}
 	}
 	nextPort := uint(r.portBase)
@@ -492,47 +451,6 @@ func (r *Runner) downloadBaseImages(ctx context.Context, t *topology.T) (err err
 	return nil
 }
 
-func (r *Runner) downloadBaseImagesDirect(ctx context.Context, t *topology.T) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("downloadBaseImagesDirect: %w", err)
-		}
-	}()
-	wantImages := make(map[string]struct{})
-	for _, d := range r.devices {
-		wantImages[d.topoDev.OSImage()] = struct{}{}
-	}
-
-	ch := make(chan error)
-	numToFetch := 0
-	for sourceURL := range wantImages {
-		sourceURL := sourceURL
-		u, err := url.Parse(sourceURL)
-		if err != nil {
-			return err
-		}
-		ofile := filepath.Join(r.imageDir, path.Base(u.Path))
-		_, err = os.Stat(ofile)
-		if err == nil {
-			continue
-		}
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-		numToFetch++
-		go func() {
-			ch <- fetchImageToFile(ctx, ofile, sourceURL)
-		}()
-	}
-	for i := 0; i < numToFetch; i++ {
-		if fetchErr := <-ch; fetchErr != nil && err == nil {
-			err = fetchErr
-		}
-	}
-
-	return err
-}
-
 func (r *Runner) createVolumes(ctx context.Context, t *topology.T) (err error) {
 	var created []*libvirt.StorageVol
 	defer func() {
@@ -554,23 +472,28 @@ func (r *Runner) createVolumes(ctx context.Context, t *topology.T) (err error) {
 	defer pool.Free()
 
 	for _, d := range r.devices {
-		base := r.baseImages[d.topoDev.OSImage()]
-		if base == nil {
-			// we should've failed earlier already
-			panic("unexpected missing base image: " +
-				d.topoDev.OSImage())
-		}
-		baseInfo, err := base.GetInfo()
-		if err != nil {
-			return fmt.Errorf("get-info: %w (bvol: %s)",
-				err, d.topoDev.OSImage())
+		var backing *libvirtxml.StorageVolumeBackingStore
+		var baseInfo *libvirt.StorageVolInfo
+
+		if osImage := d.topoDev.OSImage(); osImage != "none" {
+			base := r.baseImages[osImage]
+			if base == nil {
+				// we should've failed earlier already
+				panic("unexpected missing base image: " +
+					osImage)
+			}
+			baseInfo, err = base.GetInfo()
+			if err != nil {
+				return fmt.Errorf("get-info: %w (bvol: %s)",
+					err, osImage)
+			}
+			backing, err = newBackingStoreFromVol(base)
+			if err != nil {
+				return err
+			}
 		}
 
 		xmlVol := newVolume(d.name, int64(baseInfo.Capacity))
-		backing, err := newBackingStoreFromVol(base)
-		if err != nil {
-			return err
-		}
 		xmlVol.BackingStore = backing
 		xmlStr, err := xmlVol.Marshal()
 		if err != nil {
@@ -611,51 +534,6 @@ func (r *Runner) deleteVolumes(ctx context.Context, t *topology.T) (err error) {
 	}
 
 	return nil
-}
-
-func (r *Runner) createVolumesDirect(ctx context.Context, t *topology.T) (err error) {
-	var created []string
-	defer func() {
-		if err != nil {
-			for _, file := range created {
-				os.Remove(file)
-			}
-			err = fmt.Errorf("createVolumesDirect: %w", err)
-		}
-	}()
-	for _, d := range r.devices {
-		u, err := url.Parse(d.topoDev.OSImage())
-		if err != nil {
-			return err
-		}
-		base := filepath.Join(r.imageDir, path.Base(u.Path))
-		diff := filepath.Join(r.imageDir, d.name)
-		if err := createVolume(ctx, diff, base); err != nil {
-			return err
-		}
-		created = append(created, diff)
-	}
-
-	return nil
-}
-
-// DeleteVolumesDirect deletes any created volumes from the file system
-// location r.imageDir.
-func (r *Runner) deleteVolumesDirect(ctx context.Context, t *topology.T) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("deleteVolumesDirect: %w", err)
-		}
-	}()
-
-	for _, d := range r.devices {
-		rerr := os.Remove(filepath.Join(r.imageDir, d.name))
-		if rerr != nil && !errors.Is(err, os.ErrNotExist) && err == nil {
-			err = rerr
-		}
-	}
-
-	return err
 }
 
 func (r *Runner) defineDomains(ctx context.Context, t *topology.T) (err error) {
@@ -858,21 +736,17 @@ type device struct {
 	tunnelIP   net.IP
 	interfaces []iface
 	pool       string
-	image      string
-	baseImage  string
 	config     []byte
 	topoDev    topology.Device
 }
 
 func (d *device) templateArgs() *domainTemplateArgs {
 	args := &domainTemplateArgs{
-		Name:      d.name,
-		VCPUs:     d.topoDev.VCPUs(),
-		Memory:    d.topoDev.Memory() >> 10, // libvirt wants KiB
-		Pool:      d.pool,
-		Image:     d.image,
-		BaseImage: d.baseImage,
-		PXEBoot:   false, // set below if enabled for an interface
+		Name:    d.name,
+		VCPUs:   d.topoDev.VCPUs(),
+		Memory:  d.topoDev.Memory() >> 10, // libvirt wants KiB
+		Pool:    d.pool,
+		PXEBoot: false, // set below if enabled for an interface
 	}
 	for _, intf := range d.interfaces {
 		typ := "udp"

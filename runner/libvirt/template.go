@@ -13,13 +13,11 @@ import (
 var domainTemplateText string
 
 type domainTemplateArgs struct {
-	Name      string
-	VCPUs     int
-	Memory    int64
-	Pool      string
-	Image     string
-	BaseImage string
-	PXEBoot   bool
+	Name    string
+	VCPUs   int
+	Memory  int64
+	Pool    string
+	PXEBoot bool
 
 	Interfaces []domainInterface
 }

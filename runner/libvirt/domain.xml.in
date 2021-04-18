@@ -27,7 +27,6 @@
     <suspend-to-disk enabled="no"/>
   </pm>
   <devices>
-    {{- if .Pool }}
     <disk type='volume' device='disk'>
       <driver name='qemu' type='qcow2'/>
       <source pool='{{ .Pool }}' volume='{{ .Name }}'/>
@@ -37,22 +36,6 @@
       {{- end }}
       <alias name='virtio-disk0'/>
     </disk>
-    {{- else }}
-    <disk type='file' device='disk'>
-      <driver name='qemu' type='qcow2'/>
-      <source file='{{ .Image }}' index='1'/>
-      <backingStore type='file' index='2'>
-        <format type='qcow2'/>
-        <source file='{{ .BaseImage }}'/>
-        <backingStore/>
-      </backingStore>
-      <target dev='vda' bus='virtio'/>
-      {{- if .PXEBoot }}
-      <boot order='2'/>
-      {{- end }}
-      <alias name='virtio-disk0'/>
-    </disk>
-    {{- end }}
     <controller type="usb" model="ich9-ehci1"/>
     <controller type="usb" model="ich9-uhci1">
       <master startport="0"/>

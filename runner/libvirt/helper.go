@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -77,25 +76,6 @@ func validateDomainXML(xmlBytes []byte) (err error) {
 	return nil
 }
 
-func createVolume(ctx context.Context, path, backingStore string) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("createVolume: %w", err)
-		}
-	}()
-
-	var stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, "qemu-img", "create", "-fqcow2",
-		"-Fqcow2", "-b"+backingStore, path)
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%v (%s)", err, stderr.Bytes())
-	}
-
-	return nil
-}
-
 func mustParseMAC(s string) net.HardwareAddr {
 	hw, err := net.ParseMAC(s)
 	if err != nil {
@@ -127,34 +107,6 @@ func fetchImageContentLength(ctx context.Context, imageURL string) (n int64, err
 	}
 
 	return strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
-}
-
-func fetchImageToFile(ctx context.Context, outFile, fromURL string) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("fetchImageToFile: %w (url: %s)", err, fromURL)
-		}
-	}()
-
-	fd, err := ioutil.TempFile(filepath.Split(outFile))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			os.Remove(fd.Name())
-		}
-	}()
-
-	if err := fetchImage(ctx, fd, fromURL); err != nil {
-		fd.Close()
-		return err
-	}
-	if err := fd.Close(); err != nil {
-		return err
-	}
-
-	return os.Rename(fd.Name(), outFile)
 }
 
 func fetchImage(ctx context.Context, w io.Writer, url string) (err error) {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -26,7 +27,10 @@ type Runner struct {
 	domains      map[string]*libvirt.Domain
 	baseImages   map[string]*libvirt.StorageVol
 	sshConfigOut io.Writer
+	bmcConfigOut io.Writer
 	configFS     fs.FS
+	bmcMan       *bmcMan
+	bmcs         []hostBMC
 
 	// fields below are immutable after initialization
 	uri            string // libvirt connection URI
@@ -115,6 +119,14 @@ func WriteSSHConfig(w io.Writer) RunnerOption {
 	}
 }
 
+// WriteBMCConfig configures the Runner to write to w a JSON document
+// describing any virtual BMCs that were created.
+func WriteBMCConfig(w io.Writer) RunnerOption {
+	return func(r *Runner) {
+		r.bmcConfigOut = w
+	}
+}
+
 // WithConfigFS specifies a filesystem implementation for loading config
 // snippets requested with the node attribute config.
 func WithConfigFS(fsys fs.FS) RunnerOption {
@@ -144,6 +156,11 @@ func NewRunner(opts ...RunnerOption) *Runner {
 	for _, opt := range opts {
 		opt(r)
 	}
+
+	bmcConf := &bmcConfig{
+		connect: r.uri,
+	}
+	r.bmcMan = newBMCMan(bmcConf)
 
 	return r
 }
@@ -220,6 +237,12 @@ func (r *Runner) Run(ctx context.Context, t *topology.T) (err error) {
 			return err
 		}
 	}
+	if r.bmcConfigOut != nil {
+		// Caller asked us to write out the BMC JSON.
+		if err := r.writeBMCConfig(ctx, t); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -243,6 +266,9 @@ func (r *Runner) Destroy(ctx context.Context, t *topology.T) (err error) {
 			return err
 		}
 		r.conn = c
+	}
+	if err := r.bmcMan.stopAll(ctx); err != nil {
+		return fmt.Errorf("bmc-stop: %w", err)
 	}
 
 	if err := r.undefineDomains(ctx, t); err != nil {
@@ -305,9 +331,21 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 			}
 			config = p
 		}
+		devName := r.namePrefix + topoDev.Name
+		if topoDev.Attr("bmc") != "" {
+			bmc, err := r.bmcMan.add(devName)
+			if err != nil {
+				return fmt.Errorf("device %s: %w",
+					topoDev.Name, err)
+			}
+			r.bmcs = append(r.bmcs, hostBMC{
+				Name: topoDev.Name,
+				BMC:  bmc,
+			})
+		}
 
 		r.devices[topoDev.Name] = &device{
-			name:     r.namePrefix + topoDev.Name,
+			name:     devName,
 			tunnelIP: tunnelIP,
 			pool:     r.storagePool,
 			config:   config,
@@ -696,6 +734,9 @@ func (r *Runner) startDomains(ctx context.Context, t *topology.T) (err error) {
 		}
 		started = append(started, dom)
 	}
+	if err := r.bmcMan.startAll(ctx); err != nil {
+		return fmt.Errorf("bmc-start: %w", err)
+	}
 
 	return nil
 }
@@ -742,6 +783,22 @@ func (r *Runner) writeSSHConfig(ctx context.Context, t *topology.T) (err error) 
 	}
 
 	return w.Flush()
+}
+
+func (r *Runner) writeBMCConfig(ctx context.Context, t *topology.T) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("writeBMCConfig: %w", err)
+		}
+	}()
+
+	p, err := json.Marshal(r.bmcs)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.bmcConfigOut.Write(p)
+	return err
 }
 
 // internal representation for a device
@@ -799,4 +856,9 @@ type iface struct {
 	localPort      uint
 	remoteTunnelIP net.IP
 	pxe            bool
+}
+
+type hostBMC struct {
+	Name string `json:"name" yaml:"name"`
+	BMC  *bmc   `json:"bmc" yaml:"bmc"`
 }

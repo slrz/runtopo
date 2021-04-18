@@ -44,6 +44,18 @@ func (d *Device) Memory() int64 {
 	return builtinDefaults[d.Function()].Memory
 }
 
+// DiskSize returns the device's disk size in bytes.
+func (d *Device) DiskSize() int64 {
+	if s := d.Attr("disk"); s != "" {
+		n, err := strconv.ParseInt(s, 0, 64)
+		if err == nil {
+			// node attribute "disk" is in GiB, we want bytes.
+			return n << 30
+		}
+	}
+	return 8 << 30
+}
+
 // OSImage returns the URL to an operating system image from the 'os' node
 // attribute, falling back to a builtin default if necessary.
 func (d *Device) OSImage() string {

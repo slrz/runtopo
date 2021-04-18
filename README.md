@@ -44,6 +44,7 @@ supplied, a (possibly configurable) default is used.
 * config -- a provisioning script executed in the context of the device
 * cpu -- number of VCPUs to assign to device
 * memory -- device memory size in MiB
+* disk -- device disk size in GiB
 * tunnelip -- IP address for libvirt UDP tunnels associated with this device
 * mgmt\_ip -- creates DHCP reservation when AutoMgmtNetwork is enabled
 * no\_mgmt -- do not create management interface even when AutoMgmtNetwork is enabled

@@ -180,27 +180,57 @@ func (r *Runner) Run(ctx context.Context, t *topology.T) (err error) {
 		return err
 	}
 	r.conn = c
+	defer func() {
+		if err != nil {
+			c.Close()
+			r.conn = nil
+		}
+	}()
 
 	var (
 		downloadBaseImages = r.downloadBaseImages
 		createVolumes      = r.createVolumes
+		deleteVolumes      = r.deleteVolumes
 	)
 	// If the caller specified a target directory for images, don't go
 	// through libvirt but write to the file system directly.
 	if r.imageDir != "" {
 		downloadBaseImages = r.downloadBaseImagesDirect
 		createVolumes = r.createVolumesDirect
+		deleteVolumes = r.deleteVolumesDirect
 	}
 	if err := downloadBaseImages(ctx, t); err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			for _, v := range r.baseImages {
+				v.Free()
+			}
+			r.baseImages = nil
+		}
+	}()
 	if err := createVolumes(ctx, t); err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			deleteVolumes(ctx, t)
+		}
+	}()
 
 	if err := r.defineDomains(ctx, t); err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			r.undefineDomains(ctx, t)
+			for _, d := range r.domains {
+				d.Free()
+			}
+			r.domains = nil
+		}
+	}()
 	if err := r.customizeDomains(ctx, t); err != nil {
 		return err
 	}
@@ -231,15 +261,21 @@ func (r *Runner) Destroy(ctx context.Context, t *topology.T) (err error) {
 		return err
 	}
 
-	c, err := libvirt.NewConnect(r.uri)
-	if err != nil {
-		return err
+	if r.conn == nil {
+		c, err := libvirt.NewConnect(r.uri)
+		if err != nil {
+			return err
+		}
+		r.conn = c
 	}
-	r.conn = c
 
 	if err := r.undefineDomains(ctx, t); err != nil {
 		return err
 	}
+	for _, d := range r.domains {
+		d.Free()
+	}
+	r.domains = nil
 
 	deleteVolumes := r.deleteVolumes
 	if r.imageDir != "" {
@@ -248,6 +284,10 @@ func (r *Runner) Destroy(ctx context.Context, t *topology.T) (err error) {
 	if err := deleteVolumes(ctx, t); err != nil {
 		return err
 	}
+	for _, v := range r.baseImages {
+		v.Free()
+	}
+	r.baseImages = nil
 
 	return nil
 }
@@ -496,12 +536,14 @@ func (r *Runner) downloadBaseImagesDirect(ctx context.Context, t *topology.T) (e
 func (r *Runner) createVolumes(ctx context.Context, t *topology.T) (err error) {
 	var created []*libvirt.StorageVol
 	defer func() {
-		if err != nil {
-			for _, vol := range created {
+		for _, vol := range created {
+			if err != nil {
 				vol.Delete(0)
-				vol.Free()
-
 			}
+			vol.Free()
+
+		}
+		if err != nil {
 			err = fmt.Errorf("createVolumes: %w", err)
 		}
 	}()
@@ -540,7 +582,6 @@ func (r *Runner) createVolumes(ctx context.Context, t *topology.T) (err error) {
 		}
 		created = append(created, vol)
 		d.pool = r.storagePool
-		d.volume = vol
 	}
 
 	return nil
@@ -625,6 +666,7 @@ func (r *Runner) defineDomains(ctx context.Context, t *topology.T) (err error) {
 				dom.Undefine()
 				dom.Free()
 			}
+			r.domains = nil
 			err = fmt.Errorf("defineDomains: %w", err)
 		}
 	}()
@@ -815,7 +857,6 @@ type device struct {
 	name       string
 	tunnelIP   net.IP
 	interfaces []iface
-	volume     *libvirt.StorageVol
 	pool       string
 	image      string
 	baseImage  string

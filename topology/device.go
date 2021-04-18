@@ -60,6 +60,9 @@ func (d *Device) DiskSize() int64 {
 // attribute, falling back to a builtin default if necessary.
 func (d *Device) OSImage() string {
 	if s := d.Attr("os"); s != "" {
+		if s == "none" {
+			return ""
+		}
 		return s
 	}
 	return builtinDefaults[d.Function()].OS

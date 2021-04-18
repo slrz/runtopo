@@ -38,7 +38,7 @@ func (d *Device) Memory() int64 {
 		n, err := strconv.ParseInt(s, 0, 64)
 		if err == nil {
 			// node attribute "memory" is in MiB, we want bytes.
-			return n >> 20
+			return n << 20
 		}
 	}
 	return builtinDefaults[d.Function()].Memory

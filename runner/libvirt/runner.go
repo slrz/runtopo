@@ -41,6 +41,7 @@ type Runner struct {
 	portGap        int
 	storagePool    string
 	authorizedKeys []string
+	bmcAddr        string
 }
 
 // A RunnerOption may be passed to NewRunner to customize the Runner's
@@ -127,6 +128,13 @@ func WriteBMCConfig(w io.Writer) RunnerOption {
 	}
 }
 
+// WithBMCAddr specifies the address for any created virtual BMCs to bind to.
+func WithBMCAddr(a string) RunnerOption {
+	return func(r *Runner) {
+		r.bmcAddr = a
+	}
+}
+
 // WithConfigFS specifies a filesystem implementation for loading config
 // snippets requested with the node attribute config.
 func WithConfigFS(fsys fs.FS) RunnerOption {
@@ -159,6 +167,7 @@ func NewRunner(opts ...RunnerOption) *Runner {
 
 	bmcConf := &bmcConfig{
 		connect: r.uri,
+		addr:    r.bmcAddr,
 	}
 	r.bmcMan = newBMCMan(bmcConf)
 

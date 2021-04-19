@@ -43,6 +43,9 @@ var (
 	writeBMCConfig = flag.String("writebmcconfig",
 		os.Getenv("RUNTOPO_WRITE_BMC_CONFIG"),
 		"write JSON `file` containing virtual BMC addresses")
+	bmcAddr = flag.String("bmcaddr",
+		os.Getenv("RUNTOPO_BMC_ADDR"),
+		"make virtual BMCs bind to `address`")
 	destroy = flag.Bool("destroy", os.Getenv("RUNTOPO_DESTROY") != "",
 		"destroy resources created by previous invocation")
 )
@@ -114,6 +117,9 @@ func main() {
 			}
 		}()
 		runnerOpts = append(runnerOpts, libvirt.WriteBMCConfig(fd))
+	}
+	if s := *bmcAddr; s != "" {
+		runnerOpts = append(runnerOpts, libvirt.WithBMCAddr(s))
 	}
 	r := libvirt.NewRunner(runnerOpts...)
 

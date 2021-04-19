@@ -48,6 +48,7 @@ supplied, a (possibly configurable) default is used.
 * tunnelip -- IP address for libvirt UDP tunnels associated with this device
 * mgmt\_ip -- creates DHCP reservation when AutoMgmtNetwork is enabled
 * no\_mgmt -- do not create management interface even when AutoMgmtNetwork is enabled
+* vbmc -- if non-empty, create a virtual BMC to provide an IPMI interface for the device
 * function -- one of [oob-server, oob-switch, exit, superspine, spine, leaf,
   tor, host] or *fake* to not simulate the device at all but still make links
   appear as up to the remote side

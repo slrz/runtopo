@@ -53,7 +53,7 @@ func (d *Device) DiskSize() int64 {
 			return n << 30
 		}
 	}
-	return 8 << 30
+	return 0
 }
 
 // OSImage returns the URL to an operating system image from the 'os' node

@@ -9,9 +9,11 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"syscall"
 
 	"slrz.net/runtopo/runner/libvirt"
 	"slrz.net/runtopo/topology"
@@ -123,7 +125,12 @@ func main() {
 	}
 	r := libvirt.NewRunner(runnerOpts...)
 
-	ctx := context.TODO()
+	ctx, cancel := signal.NotifyContext(context.Background(),
+		os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	// TODO(ls): revert to default signal disposition a couple of seconds
+	// after ctx gets canceled?
+
 	if *destroy {
 		if err := r.Destroy(ctx, topo); err != nil {
 			log.Fatal(err)

@@ -380,6 +380,17 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 				})
 				continue
 			}
+			// When an edge has the libvirt_type attribute set to
+			// "network", the RHS refers to a libvirt network
+			// instead of a node in the topology.
+			if v := l.Attr("libvirt_type"); v == "network" {
+				from.interfaces = append(from.interfaces, iface{
+					name:    l.FromPort,
+					mac:     mac,
+					network: l.To,
+				})
+				continue
+			}
 			toTunnelIP := r.tunnelIP
 			if to := r.devices[l.To]; to != nil {
 				toTunnelIP = to.tunnelIP

@@ -524,7 +524,7 @@ func (r *Runner) createVolumes(ctx context.Context, t *topology.T) (err error) {
 
 	for _, d := range r.devices {
 		var backing *libvirtxml.StorageVolumeBackingStore
-		var capacity int64
+		capacity := d.topoDev.DiskSize()
 
 		if osImage := d.topoDev.OSImage(); osImage != "" {
 			base := r.baseImages[osImage]
@@ -538,13 +538,15 @@ func (r *Runner) createVolumes(ctx context.Context, t *topology.T) (err error) {
 				return fmt.Errorf("get-info: %w (bvol: %s)",
 					err, osImage)
 			}
-			capacity = int64(baseInfo.Capacity)
+			if capacity == 0 {
+				// use backing image cap only if there's no
+				// explicit disk size setting
+				capacity = int64(baseInfo.Capacity)
+			}
 			backing, err = newBackingStoreFromVol(base)
 			if err != nil {
 				return err
 			}
-		} else {
-			capacity = d.topoDev.DiskSize()
 		}
 
 		xmlVol := newVolume(d.name, capacity)

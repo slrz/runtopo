@@ -215,7 +215,7 @@ func isASCIIDigit(c rune) bool {
 }
 
 func hasFunction(d *device, fs ...topology.DeviceFunction) bool {
-	return topology.HasFunction(&d.topoDev, fs...)
+	return topology.HasFunction(&d.Device, fs...)
 }
 
 // Returns whether d defaults to Cumulus Linux.

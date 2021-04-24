@@ -33,7 +33,7 @@ func customizeDomain(ctx context.Context, uri string, d *device, extraCommands i
 	cmd := exec.CommandContext(ctx, "virt-customize", "-q",
 		"-d", d.name,
 		"-c", uri,
-		"--hostname", d.topoDev.Name,
+		"--hostname", d.Name,
 		"--timezone", "Etc/UTC",
 		// This rename script basically does s/eth/swp/ and breaks
 		// proper interface naming using udev rules. Delete it.
@@ -88,8 +88,8 @@ func commandsForFunction(d *device) []byte {
 		// libguestfs (1.44) thinks it doesn't know how to set
 		// hostnames for CL. Work around by directly writing to
 		// /etc/hostname.
-		fmt.Fprintf(&buf, "write /etc/hostname:%s\\\n\n", d.topoDev.Name)
-		if d.topoDev.Function() == topology.OOBSwitch {
+		fmt.Fprintf(&buf, "write /etc/hostname:%s\\\n\n", d.Name)
+		if d.Function() == topology.OOBSwitch {
 			writeExtraMgmtSwitchCommands(&buf, d)
 		}
 		return buf.Bytes()
@@ -112,7 +112,7 @@ func commandsForFunction(d *device) []byte {
 	// what we have in the topology file.
 	buf.WriteString("write /etc/lldpd.d/ifname.conf:configure lldp portidsubtype ifname\\\n\n")
 
-	if d.topoDev.Function() == topology.OOBServer {
+	if d.Function() == topology.OOBServer {
 		writeExtraMgmtServerCommands(&buf, d)
 	}
 	// Only required for SELinux-enabled systems (mostly Fedora/EL)
@@ -170,7 +170,7 @@ PREFIX=%d
 func writeExtraMgmtServerCommands(w io.Writer, d *device) {
 	io.WriteString(w, "install nftables,dnsmasq\n")
 	// We assume that the prefix has already been validated.
-	p := netaddr.MustParseIPPrefix(d.topoDev.Attr("mgmt_ip"))
+	p := netaddr.MustParseIPPrefix(d.Attr("mgmt_ip"))
 	io.WriteString(w, "write /etc/sysconfig/network-scripts/ifcfg-eth0:"+
 		"TYPE=Ethernet\\\nDEVICE=eth0\\\nPEERDNS=yes\\\nBOOTPROTO=dhcp\\\nONBOOT=yes\n")
 	io.WriteString(w, "write /etc/sysconfig/network-scripts/ifcfg-eth1:"+
@@ -214,7 +214,7 @@ func gatherHosts(ctx context.Context, r *Runner, t *topology.T) []etherHost {
 			// most likely, device does not have a mgmt interface
 			continue
 		}
-		mgmtIP := d.topoDev.MgmtIP()
+		mgmtIP := d.MgmtIP()
 		if mgmtIP == nil {
 			continue
 		}

@@ -358,7 +358,7 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 			tunnelIP: tunnelIP,
 			pool:     r.storagePool,
 			config:   config,
-			topoDev:  topoDev,
+			Device:   topoDev,
 		}
 	}
 	nextPort := uint(r.portBase)
@@ -449,7 +449,7 @@ func (r *Runner) downloadBaseImages(ctx context.Context, t *topology.T) (err err
 	wantImages := make(map[string]struct{})
 	haveImages := make(map[string]*libvirt.StorageVol)
 	for _, d := range r.devices {
-		osImage := d.topoDev.OSImage()
+		osImage := d.OSImage()
 		if osImage == "" {
 			continue
 		}
@@ -535,9 +535,9 @@ func (r *Runner) createVolumes(ctx context.Context, t *topology.T) (err error) {
 
 	for _, d := range r.devices {
 		var backing *libvirtxml.StorageVolumeBackingStore
-		capacity := d.topoDev.DiskSize()
+		capacity := d.DiskSize()
 
-		if osImage := d.topoDev.OSImage(); osImage != "" {
+		if osImage := d.OSImage(); osImage != "" {
 			base := r.baseImages[osImage]
 			if base == nil {
 				// we should've failed earlier already
@@ -674,7 +674,7 @@ func (r *Runner) customizeDomains(ctx context.Context, t *topology.T) (err error
 	customizeCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	for _, d := range r.devices {
-		if d.topoDev.OSImage() == "" {
+		if d.OSImage() == "" {
 			// Cannot customize blank disk image.
 			continue
 		}
@@ -691,7 +691,7 @@ func (r *Runner) customizeDomains(ctx context.Context, t *topology.T) (err error
 				fmt.Fprintf(&buf, "ssh-inject root:string:%s\n", k)
 			}
 		}
-		if d.topoDev.Function() == topology.OOBServer {
+		if d.Function() == topology.OOBServer {
 			hosts := gatherHosts(ctx, r, t)
 			for _, h := range hosts {
 				fmt.Fprintf(&buf, "append-line /etc/hosts:%s %s\n",
@@ -792,7 +792,7 @@ func (r *Runner) writeSSHConfig(ctx context.Context, t *topology.T) (err error) 
 			continue
 		}
 		user := "root"
-		if hasCumulusFunction(&device{topoDev: d}) {
+		if hasCumulusFunction(&device{Device: d}) {
 			user = "cumulus"
 		}
 		fmt.Fprintf(w, `Host %s
@@ -825,22 +825,22 @@ func (r *Runner) writeBMCConfig(ctx context.Context, t *topology.T) (err error) 
 
 // internal representation for a device
 type device struct {
+	topology.Device
 	name       string
 	tunnelIP   net.IP
 	interfaces []iface
 	pool       string
 	config     []byte
-	topoDev    topology.Device
 }
 
 func (d *device) templateArgs() *domainTemplateArgs {
 	args := &domainTemplateArgs{
 		Name:    d.name,
-		VCPUs:   d.topoDev.VCPUs(),
-		Memory:  d.topoDev.Memory() >> 10, // libvirt wants KiB
+		VCPUs:   d.VCPUs(),
+		Memory:  d.Memory() >> 10, // libvirt wants KiB
 		Pool:    d.pool,
 		PXEBoot: false, // set below if enabled for an interface
-		UEFI:    d.topoDev.Attr("efi") != "",
+		UEFI:    d.Attr("efi") != "",
 	}
 	for _, intf := range d.interfaces {
 		typ := "udp"

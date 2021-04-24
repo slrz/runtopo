@@ -840,6 +840,7 @@ func (d *device) templateArgs() *domainTemplateArgs {
 		Memory:  d.topoDev.Memory() >> 10, // libvirt wants KiB
 		Pool:    d.pool,
 		PXEBoot: false, // set below if enabled for an interface
+		UEFI:    d.topoDev.Attr("efi") != "",
 	}
 	for _, intf := range d.interfaces {
 		typ := "udp"

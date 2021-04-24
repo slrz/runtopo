@@ -18,6 +18,7 @@ type domainTemplateArgs struct {
 	Memory  int64
 	Pool    string
 	PXEBoot bool
+	UEFI    bool
 
 	Interfaces []domainInterface
 }

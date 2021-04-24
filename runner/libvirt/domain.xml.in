@@ -5,6 +5,10 @@
   <vcpu>{{ .VCPUs }}</vcpu>
   <os>
     <type arch="x86_64" machine="q35">hvm</type>
+    {{- if .UEFI }}
+    <loader readonly='yes' type='pflash'>/usr/share/edk2/ovmf/OVMF_CODE.fd</loader>
+    <nvram>/var/lib/libvirt/qemu/nvram/{{ .Name }}_VARS.fd</nvram>
+    {{- end }}
     {{- if not .PXEBoot }}
     <boot dev="hd"/>
     {{- end }}

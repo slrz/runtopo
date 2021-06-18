@@ -425,10 +425,10 @@ func (r *Runner) buildInventory(t *topology.T) (err error) {
 	for _, d := range r.devices {
 		sort.Slice(d.interfaces, func(i, j int) bool {
 			di, dj := d.interfaces[i], d.interfaces[j]
-			if di.name == "eth0" && dj.name != "eth0" {
-				return true
+			if di.name == "eth0" {
+				return dj.name != "eth0"
 			}
-			return natCompare(di.name, dj.name) < 0
+			return dj.name != "eth0" && natCompare(di.name, dj.name) < 0
 		})
 	}
 	return nil

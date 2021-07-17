@@ -6,6 +6,7 @@ import (
 
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding/dot"
+	"gonum.org/v1/gonum/graph/multi"
 	"inet.af/netaddr"
 )
 
@@ -34,7 +35,7 @@ var WithAutoMgmtNetwork = func(t *T) {
 // error, if any.
 func Parse(dotBytes []byte, opts ...Option) (*T, error) {
 	g := newDotGraph()
-	if err := dot.Unmarshal(dotBytes, g); err != nil {
+	if err := dot.UnmarshalMulti(dotBytes, g); err != nil {
 		return nil, fmt.Errorf("Parse: %w", err)
 	}
 	t := &T{g: g, devs: make(map[string]*Device)}
@@ -117,16 +118,18 @@ func (t *T) devices() []Device {
 func (t *T) Links() []Link {
 	var ls []Link
 	for _, e := range graph.EdgesOf(t.g.Edges()) {
-		e := e.(*dotEdge)
-		fromPort, _ := e.FromPort()
-		toPort, _ := e.ToPort()
-		ls = append(ls, Link{
-			From:     e.From().(*dotNode).dotID,
-			FromPort: fromPort,
-			To:       e.To().(*dotNode).dotID,
-			ToPort:   toPort,
-			attrs:    e.attrs,
-		})
+		for _, l := range graph.LinesOf(e.(multi.Edge).Lines) {
+			e := l.(*dotLine)
+			fromPort, _ := e.FromPort()
+			toPort, _ := e.ToPort()
+			ls = append(ls, Link{
+				From:     e.From().(*dotNode).dotID,
+				FromPort: fromPort,
+				To:       e.To().(*dotNode).dotID,
+				ToPort:   toPort,
+				attrs:    e.attrs,
+			})
+		}
 	}
 	return append(ls, t.mgmtLinks...)
 }

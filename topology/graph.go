@@ -3,22 +3,22 @@ package topology
 import (
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding"
-	"gonum.org/v1/gonum/graph/simple"
+	"gonum.org/v1/gonum/graph/multi"
 )
 
-// dotGraph wraps a simple.UndirectedGraph for DOT unmarshaling.
+// dotGraph wraps a multi.UndirectedGraph for DOT unmarshaling.
 type dotGraph struct {
-	*simple.UndirectedGraph
+	*multi.UndirectedGraph
 }
 
 func newDotGraph() *dotGraph {
-	return &dotGraph{UndirectedGraph: simple.NewUndirectedGraph()}
+	return &dotGraph{UndirectedGraph: multi.NewUndirectedGraph()}
 }
 
-// NewEdge returns a DOT-aware edge.
-func (g *dotGraph) NewEdge(from, to graph.Node) graph.Edge {
-	e := g.UndirectedGraph.NewEdge(from, to).(simple.Edge)
-	return &dotEdge{Edge: e}
+// NewLine returns a DOT-aware line.
+func (g *dotGraph) NewLine(from, to graph.Node) graph.Line {
+	e := g.UndirectedGraph.NewLine(from, to).(multi.Line)
+	return &dotLine{Line: e}
 }
 
 // NewNode returns a DOT-aware node.
@@ -26,18 +26,18 @@ func (g *dotGraph) NewNode() graph.Node {
 	return &dotNode{Node: g.UndirectedGraph.NewNode()}
 }
 
-// SetEdge allows the DOT unmarshaler to add edges to the graph.
-func (g *dotGraph) SetEdge(e graph.Edge) {
-	g.UndirectedGraph.SetEdge(e.(*dotEdge))
+// SetLine allows the DOT unmarshaler to add lines to the graph.
+func (g *dotGraph) SetLine(e graph.Line) {
+	g.UndirectedGraph.SetLine(e.(*dotLine))
 }
 
 type dotPortLabels struct {
 	Port, Compass string
 }
 
-// dotEdge is a DOT-aware weighted edge.
-type dotEdge struct {
-	simple.Edge
+// dotLine is a DOT-aware unweighted line.
+type dotLine struct {
+	multi.Line
 
 	FromPortLabels dotPortLabels
 	ToPortLabels   dotPortLabels
@@ -45,7 +45,7 @@ type dotEdge struct {
 }
 
 // SetAttribute sets an attribute of the receiver.
-func (e *dotEdge) SetAttribute(attr encoding.Attribute) error {
+func (e *dotLine) SetAttribute(attr encoding.Attribute) error {
 	if e.attrs == nil {
 		e.attrs = make(map[string]string)
 	}
@@ -54,27 +54,27 @@ func (e *dotEdge) SetAttribute(attr encoding.Attribute) error {
 }
 
 // Attributes returns the DOT attributes of the edge.
-func (e *dotEdge) Attributes() []encoding.Attribute {
+func (e *dotLine) Attributes() []encoding.Attribute {
 	return toAttributeSlice(e.attrs)
 }
 
-func (e *dotEdge) SetFromPort(port, compass string) error {
+func (e *dotLine) SetFromPort(port, compass string) error {
 	e.FromPortLabels.Port = port
 	e.FromPortLabels.Compass = compass
 	return nil
 }
 
-func (e *dotEdge) SetToPort(port, compass string) error {
+func (e *dotLine) SetToPort(port, compass string) error {
 	e.ToPortLabels.Port = port
 	e.ToPortLabels.Compass = compass
 	return nil
 }
 
-func (e *dotEdge) FromPort() (port, compass string) {
+func (e *dotLine) FromPort() (port, compass string) {
 	return e.FromPortLabels.Port, e.FromPortLabels.Compass
 }
 
-func (e *dotEdge) ToPort() (port, compass string) {
+func (e *dotLine) ToPort() (port, compass string) {
 	return e.ToPortLabels.Port, e.ToPortLabels.Compass
 }
 

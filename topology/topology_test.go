@@ -54,3 +54,21 @@ func TestInvalidHostnames(t *testing.T) {
 		t.Errorf("got err=%v, want invalid hostname", err)
 	}
 }
+
+// Test that we handle multiple parallel links between two devices.
+func TestParallelLinks(t *testing.T) {
+	const G = `
+		graph G {
+			"a":swp2 -- "b":swp2
+			"a":swp1 -- "b":swp1
+		}`
+
+	topo, err := Parse([]byte(G))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if xs := topo.Links(); len(xs) != 2 {
+		t.Errorf("got %d links, want 2", len(xs))
+	}
+}

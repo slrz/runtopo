@@ -43,7 +43,7 @@ func Parse(dotBytes []byte, opts ...Option) (*T, error) {
 	}
 
 	for _, d := range t.devices() {
-		if !isValidHostname(d.Name) {
+		if !isValidHostname(d.Name) && d.Function() != Fake {
 			return nil, fmt.Errorf("invalid hostname: %q", d.Name)
 		}
 		d := d
